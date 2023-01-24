@@ -1,7 +1,12 @@
-import React, { useEffect } from 'react'
-import { MapContainer, TileLayer, LocationMarker } from 'react-leaflet'
+import React, { useEffect, useRef,useState } from 'react'
+import {MapContainer, Marker, Popup, TileLayer} from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import LeafletRoutingMachine from './LeafletRoutingMachine'
 
 export default function Driver() {
+
+    const [route,setRoute] = useState([[28,77],[30,77]])
 
     const fetchData = async () => {
         const data = await fetch('http://localhost:8000/')
@@ -9,24 +14,33 @@ export default function Driver() {
         console.log(json)
     }
 
-  
+    const getRoute = async () => {
+        const rte = await fetch('http://localhost:8000/driver_route')
+        const data = await rte.json()
+        console.log(data)
+        setRoute(data.route)
+    }
+
     useEffect(() => {
-        fetchData()
+        // fetchData()
+        getRoute()
     }, [])
 
   return (
-    <div style={{'width':'50%','height':'50%'}}>
-    {/* <div>Driver</div> */}
-    {/* <MapContainer
-        center={{ lat: 51.505, lng: -0.09 }}
-        zoom={13}
-        scrollWheelZoom={false}>
+    <div>
+    <div>Driver</div>
+    <MapContainer center={[28,77]} zoom={6} scrollWheelZoom={false} 
+        style={{ height:"400px",marginTop:"80px", marginBottom:'90px',width:"50%",marginLeft:"25%",marginRight:"25%"
+            }} >
         <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <LocationMarker />
-    </MapContainer> */}
+        {/* <Marker position={[28,77]} />
+        <Popup position={[28,77]}> 
+            <div>Popup for any custom information.</div>
+        </Popup> */}
+        <LeafletRoutingMachine waypoints={route}/>
+        </MapContainer>
     </div>
   )
 }
