@@ -7,4 +7,6 @@ urlpatterns = [
     path('droplocations', views.droplocations, name='droplocations'),
     path('dispatch_addresses', views.dispatch_addresses, name='dispatch_addresses'),
     path('driver_route', views.driver_route, name='driver_route'),
+    path('admin_routes', views.admin_routes, name='admin_routes'),
+    path('get_waypoint_to_coord', views.get_waypoint_to_coord, name='get_waypoint_to_coord'),
 ]

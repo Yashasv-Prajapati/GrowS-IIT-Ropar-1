@@ -6,13 +6,7 @@ import LeafletRoutingMachine from './LeafletRoutingMachine'
 
 export default function Driver() {
 
-    const [route,setRoute] = useState([[28,77],[30,77]])
-
-    const fetchData = async () => {
-        const data = await fetch('http://localhost:8000/')
-        const json = await data.json()
-        console.log(json)
-    }
+    const [route,setRoute] = useState([])
 
     const getRoute = async () => {
         const rte = await fetch('http://localhost:8000/driver_route')
@@ -22,7 +16,6 @@ export default function Driver() {
     }
 
     useEffect(() => {
-        // fetchData()
         getRoute()
     }, [])
 

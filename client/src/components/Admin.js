@@ -1,70 +1,63 @@
-import React,{useState} from 'react'
-import httpClient from "../httpClient";
-import {MapContainer,TileLayer} from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import LeafletRoutingMachine from './LeafletRoutingMachine'
+import React,{useState,useEffect} from 'react'
+import MapContainerRoutes from './MapContainerRoutes';
+import axios from 'axios';
 
 export default function Admin() {
-  const routes = [[[28,77],[30,77]],[[28,78],[30,78],[32,78]]]
-  const [file, setFile] = useState('');
-
-  function getCookie(name) {
-      let cookieValue = null;
-      if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';');
-          for (let i = 0; i < cookies.length; i++) {
-              const cookie = cookies[i].trim();
-              // Does this cookie string begin with the name we want?
-              if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                  cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                  break;
-              }
-          }
-      }
-      return cookieValue;
-  }
-  const csrftoken = getCookie('csrftoken');
-
+  const [routes,setRoutes] = useState([])
+  const [file, setFile] = useState(null);
 
   const sendFile = async (e) => {
     e.preventDefault();
-    console.log(file['file']);
     
-    const payload = new FormData();
-    payload.append("msg", "Excel File");
+    var payload = new FormData();
     payload.append("file", file);
-    const response = await httpClient.post("http://localhost:8000/dispatch_addresses", payload, {
-      headers: {
-        'X-CSRFToken': csrftoken,
-        'Content-Type': "multipart/form-data",
-      }
-    });
-    console.log(response);
+    console.log("File:", file);
 
-    // const response = await httpClient.post("http://localhost:8000/dispatch_addresses");
+    axios.post("http://localhost:8000/dispatch_addresses", payload, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      }  
+    });
   }
+
+  const getRoutes = async () => {
+      const rte = await fetch('http://localhost:8000/admin_routes')
+      const data = await rte.json()
+      console.log(data)
+      setRoutes(data.routes)
+  }
+
+  const addWayPoint = async (e) => {
+    e.preventDefault();
+    const waypoint = e.target.waypoint.value;
+    const response = await axios.get(`http://localhost:8000/get_waypoint_to_coord?query=${waypoint}`)
+    const data = await response.json();
+    
+    // In this data
+  }
+
+  useEffect(() => {
+      getRoutes()
+  }, [])
+
   return (
     <div>
       <h2>Admin</h2>
-      <form>
+      <form 
+      onSubmit={sendFile}
+      //action="http://localhost:8000/dispatch_addresses" 
+      method="POST" enctype="multipart/form-data" >
         <input type="file" name="file" 
           accept=".xls,.xlsx,.csv,.txt" 
           onChange={e => setFile({ file: e.target.files[0] })} />
-        <button type="submit" onClick={sendFile}>Send</button>
+        <button type="submit">Send</button>
       </form>
-
-      <MapContainer center={[28,77]} zoom={6} scrollWheelZoom={false} 
-        style={{ height:"400px",marginTop:"80px", marginBottom:'90px',width:"50%",marginLeft:"25%",marginRight:"25%"
-            }} >
-        <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {routes.map((route,index) => {
-          return <LeafletRoutingMachine key={index} waypoints={route}/>
-        }
-        )}
-        </MapContainer>
+      <MapContainerRoutes routes={routes}/>
+      {/* Add a form to add a dynamic waypoint */}
+      <form onSubmit={addWayPoint}>
+        <input type="text" name="waypoint" />
+        <button type="submit">Add Waypoint</button>
+      </form>
     </div>
   )
 }
