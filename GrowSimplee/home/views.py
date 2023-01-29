@@ -152,7 +152,7 @@ def create_data_model():
                 [5, 12, 9, 14, 12, 6, 6, 7, 3, 3, 4, 7, 6, 4, 0, 9, 2],
                 [9, 10, 18, 6, 8, 12, 15, 8, 13, 9, 13, 3, 4, 5, 9, 0, 9],
                 [7, 14, 9, 16, 14, 8, 5, 10, 6, 5, 4, 10, 8, 6, 2, 9, 0],
-              ]
+            ]
     # According to our problem, the first parameter will be zero only
     data['time_windows'] = [
                 (0, 60),  # depot
@@ -179,7 +179,9 @@ def create_data_model():
     data['depot'] = 0
     return data
 
-def print_solution(data, manager, routing, assignment, time_callback):
+def get_solution(data, manager, routing, assignment, time_callback):
+    All_Routes = []
+
     """Prints assignment on console."""
     print(f'Objective: {assignment.ObjectiveValue()}')
     # Display dropped nodes.
@@ -195,26 +197,27 @@ def print_solution(data, manager, routing, assignment, time_callback):
     total_load = 0
     for vehicle_id in range(data['num_vehicles']):
         index = routing.Start(vehicle_id)
-        plan_output = 'Route for vehicle {}:\n'.format(vehicle_id)
-        route_distance = 0
         route_load = 0
+
+        routes = []
+
         while not routing.IsEnd(index):
+
             node_index = manager.IndexToNode(index)
+            time_taken = time_callback(index, index+1)
             route_load += data['demands'][node_index]
-            plan_output += ' {0} Load({1}) -> '.format(node_index, route_load)
-            previous_index = index
+            
+            route = []
+            route.append(node_index)
+            route.append(route_load)
+            route.append(time_taken)
+            routes.append(route)
+
             index = assignment.Value(routing.NextVar(index))
-            route_distance += routing.GetArcCostForVehicle(
-                previous_index, index, vehicle_id)
-        plan_output += ' {0} Load({1})\n'.format(manager.IndexToNode(index),
-                                                 route_load)
-        plan_output += 'Distance of the route: {}m\n'.format(route_distance)
-        plan_output += 'Load of the route: {}\n'.format(route_load)
-        print(plan_output)
-        total_distance += route_distance
-        total_load += route_load
-    print('Total Distance of all routes: {}m'.format(total_distance))
-    print('Total Load of all routes: {}'.format(total_load))
+        
+        All_Routes.append(routes)
+
+    return All_Routes
 
 def cvrptw_with_dropped_locations():
     # This function will be used to calculate the routes with dropped locations
@@ -283,14 +286,16 @@ def cvrptw_with_dropped_locations():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.FromSeconds(1)
+    search_parameters.time_limit.FromSeconds(10)
 
     # Solve the problem.
     assignment = routing.SolveWithParameters(search_parameters)
 
     # Print solution on console.
+    solution = None
     if assignment:
-        print_solution(data, manager, routing, assignment, time_callback)
+        solution = get_solution(data, manager, routing, assignment, time_callback)
+    
 
 @csrf_exempt
 def get_waypoint_to_coord(request):

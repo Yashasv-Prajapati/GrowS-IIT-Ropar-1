@@ -6,6 +6,7 @@ import ScanTool from './components/ScanTool';
 import Admin from './components/Admin';
 import Driver from './components/Driver';
 import Header from './components/Header';
+import Data from './components/Data'
 import "bootstrap/dist/css/bootstrap.min.css"
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
       <Route path="scan-tool" element={<ScanTool/>} />
       <Route path="admin" element={<Admin/>} />
       <Route path="driver" element={<Driver/>} />
+      <Route path="data" element={<Data/>} />
     </Routes>
     </>
   );
