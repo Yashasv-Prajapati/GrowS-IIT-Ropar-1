@@ -5,12 +5,50 @@ function Data() {
   
     const [vehicleNum, setvehicleNum] = useState(0)
     const [CapacityArr, setCapacityArr ] = useState(new Array(vehicleNum))
+    const [data, setData]=useState({
+      vehicleNum:null,
+      CapacityArr: null,
+      dispatchAdd: null,
+      pickupAdd: null
+    })
+    const [dispatchAdd, setDispatchAdd] = useState(null)
+    const [pickupAdd, setPickUpAdd] = useState(null)
+    
+    function sendData(e){
+      e.preventDefault()
+      if(data.vehicleNum==null ||data.vehicleNum==undefined){
+        return;
+      }
+      if(data.CapacityArr==null ||data.CapacityArr==undefined || data.CapacityArr.length==0){
+        return;
+      }
+      if(data.dispatchAdd==null ||data.dispatchAdd==undefined){
+        return;
+      }
+      if(data.pickupAdd==null ||data.pickupAdd==undefined){
+        return;
+      }
+
+      fetch("http://localhost:8000/add_data", {
+        method:'post',
+        body:JSON.stringify(data),
+        headers:{
+          'Content-Type':'application/json'
+        }
+      }).then(response=>{
+        response.json().then((data)=>{
+          console.log(data)
+        })
+      }).catch(err=>{
+        console.log(err)
+      })
+
+    }
 
     useEffect(()=>{
       console.log(CapacityArr.length)
     }, [vehicleNum])
 
-    const setMyTestInfo = 0
 
     const setVehicleNumber = (e)=>{
       try{
@@ -33,19 +71,19 @@ function Data() {
   
     return (
     
-      <form className="w-full max-w-lg lg:mx-auto md:mx-auto bg-orange-200 p-4 m-4 mx-auto border-8 border-orange-100 rounded">
+      <form onSubmit={sendData} className="w-full max-w-lg lg:mx-auto md:mx-auto bg-orange-200 p-4 m-4 mx-auto border-8 border-orange-100 rounded">
         <div className="flex flex-wrap -mx-3 mb-6">
           <div className="w-full md:w-1/2 px-3 mb-6 md:mb-0">
             <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-first-name">
               Dispatch Addresses
             </label>
-            <input className="appearance-none block w-full bg-gray-200 text-gray-700 border border-red-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white" id="grid-first-name" type="file"  />
+            <input className="appearance-none block w-full bg-gray-200 text-gray-700 border border-red-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white" id="grid-first-name" type="file" onChange={(e)=>{setDispatchAdd(e.target.files[0])}} />
           </div>
           <div className="w-full md:w-1/2 px-3">
             <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-last-name">
               Dynamic Pickup Addresses
             </label>
-            <input className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-last-name" type="file" />
+            <input className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-last-name" type="file" onChange={(e)=>{setPickUpAdd(e.target.files[0])}}/>
           </div>
         </div>
         <div className="flex flex-wrap -mx-3 mb-6">
@@ -76,18 +114,20 @@ function Data() {
 
         <div className='w-full my-4 flex justify-center flex-col md:flex-col lg:flex-col'>
             {/* Batch menu button */} 
-            <label htmlFor="batchlabel" class="form-label text-bold text-3xl mx-auto inline-block mb-2 text-gray-700"
-                > Select Bag Dimensions </label>
-                <div className='mx-2 px-2 flex flex-row mx-auto'>  
-                    <label className='mx-2' htmlFor="dim1">60 x 60 x 100 cms</label>
-                    <input type="checkbox" onChange={setMyTestInfo} name="Physics" id="Physics" />
-                </div>
+            <div className="w-full px-3">
+              <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
+                Number of Bags of Dim (60 x 60 x 100 cms)
+              </label>
+              <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" />
 
+            </div>
+            <div className="w-full px-3">
+              <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
+                Number of Bags of Dim (80 x 80 x 100 cms)
+              </label>
+              <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" />
 
-                <div className='mx-2 px-2 flex flex-row mx-auto'>
-                    <label htmlFor="Chem" className='mx-2'>80 x 80 x 100 cms</label>
-                    <input type="checkbox" onChange={setMyTestInfo} name="Chem" id="Chem" />
-                </div>
+            </div>
         </div>
 
 

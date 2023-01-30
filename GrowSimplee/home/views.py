@@ -51,8 +51,67 @@ import urllib.parse
 
 # Data needed to be passed : ‘Demands’, ‘Time windows’, ‘Vehicle capacities’, ‘Distance matrix’ and ‘Time matrix’
 
+data_locations = {}
+"""
+Stores the address, latitude and longitude of different items
+here key is the index of the item, i.e. node_index
+Format:
+{
+    0: {
+        'address': 'Address 1',
+        'lat': latitude,
+        'lon': longitude
+    },
+    ...
+}
+"""
 
 driver_routes = []
+"""
+driver_routes stores all the routes for different driver
+Format:
+[
+    [        # Route for driver 0
+        [node_index, route_load, time_taken],
+        [node_index, route_load, time_taken],
+        [node_index, route_load, time_taken],
+        [node_index, route_load, time_taken]
+        ...
+    ],
+    [        # Route for driver 1
+        [node_index, route_load, time_taken],
+        [node_index, route_load, time_taken],
+        [node_index, route_load, time_taken],
+        [node_index, route_load, time_taken]
+        ...
+    ],
+    ...
+]
+
+"""
+
+
+all_driver_path = []
+"""
+Format:
+[
+    [        # Path for driver 0
+        [lat0, long0],
+        [lat1, long1],
+        [lat2, long2],
+        ...
+    ],
+    [        # Path for driver 1
+        [latg0, long0],
+        [latg1, long1],
+        [latg2, long2],
+        ...
+    ],
+    ...
+]
+"""
+
+
 
 def index(request):
     response = {}
@@ -67,14 +126,24 @@ def droplocations(request):
     return JsonResponse(response)
 
 def get_distance(addresses):
+    # Have to build the distance matrix from here
     for i in range (len(addresses)):
         addresses[i] = addresses[i].strip()
-    address = 'Shivaji Nagar, Bangalore, KA 560001'
-    url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(address) +'?format=json'
-    response = requests.get(url).json()
-    print(response[0]["lat"])
-    print(response[0]["lon"])
+        url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(addresses[i]) +'?format=json'
+        response = requests.get(url).json()
+        data_locations[i] = {
+            'address': addresses[i],
+            'lat': response[i]["lat"],
+            'lon': response[i]["lon"]
+        }
 
+
+    # address = 'Shivaji Nagar, Bangalore, KA 560001'
+    # url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(address) +'?format=json'
+    # response = requests.get(url).json()
+    # print(response[0]["lat"])
+    # print(response[0]["lon"])
+        
     # print("HHH", addresses[0])
     # locator = Nominatim(user_agent="geoapiExercises")
     # print(locator)
@@ -114,8 +183,18 @@ def admin_routes(request):
     response['status'] = 'OK'
     response['message'] = 'This is the admin routes page'
     # For now, hard coded the routes
+    if driver_routes == []:
+        cvrptw_with_dropped_locations()
     response['routes'] = driver_routes
     return JsonResponse(response)
+
+def process_data(data):
+    print(data)
+    response = {}
+    response['status']='OK'
+    response['message']='success bitch'
+    return JsonResponse(response)
+
 
 def waypoint_to_coord(query):
     # Need a api that accuractely converts a waypoint to coordinates, for now using positionstack, later will replace this with a better api
@@ -216,7 +295,9 @@ def get_solution(data, manager, routing, assignment, time_callback):
             index = assignment.Value(routing.NextVar(index))
         
         All_Routes.append(routes)
-
+    
+    # Just for checking purposes
+    driver_routes = All_Routes
     return All_Routes
 
 def cvrptw_with_dropped_locations():
@@ -310,3 +391,85 @@ def get_waypoint_to_coord(request):
     response['lat'] = lat
     response['lon'] = lon
     return JsonResponse(response)
+
+
+
+def find_kth_delivery_item(k):
+    # This function finds information of the kth delivery item being delivered
+    # It returns a list of the following format:
+    # [driver_index, node_index, route_load, total_time]
+    # Here total_time is the time taken to reach the kth delivery item from the depot
+
+
+    # Creating a list of tuple of all items being delivered and then finally we will sort it to find kth item
+    # The tuple will be of the format (driver_index, node_index, route_load, total_time)
+    all_items = []
+    driver_index = 0
+    for routes in driver_routes:
+        time = 0
+        for route in routes:
+            node_index = route[0]
+            route_load = route[1]
+            time_taken = route[2]
+            time += time_taken
+            all_items.append((driver_index, node_index, route_load, time))
+        driver_index += 1
+    
+    # Sorting the list of tuples
+    all_items.sort(key = lambda x: x[3])
+
+    # Returning the kth item
+    try:
+        return all_items[k]
+    except IndexError:
+        print("IndexError in find_kth_delivery_item function: k is greater than the number of items being delivered")
+
+
+
+
+def update_driver_routes(k):
+    # This function updates the driver_routes list after the kth delivery item has been delivered
+    # All the items before the kth item will be removed from the list
+    # kth item will also be removed from the driver_routes list
+
+    # Creating a list of tuple of all items being delivered and then finally we will sort it to find kth item
+    # The tuple will be of the format (total_time, driver_index, node_index, route_load, time_taken)
+    all_items = []
+    driver_index = 0
+    for routes in driver_routes:
+        time = 0
+        for route in routes:
+            node_index = route[0]
+            route_load = route[1]
+            time_taken = route[2]
+            time += time_taken
+            all_items.append((time, driver_index, node_index, route_load, time_taken))
+        driver_index += 1
+    
+    # Sorting the list of tuples
+    all_items.sort(key = lambda x: x[0])
+
+    # Creating updated driver_routes list
+    updated_driver_routes = [[] for _ in range(len(driver_routes))]
+    for i in range(k, len(all_items)):
+        driver_index = all_items[i][1]
+        updated_driver_routes[driver_index].append(all_items[i][2:])
+    
+    # Updating the driver_routes list
+    global driver_routes
+    driver_routes = updated_driver_routes
+
+def date_driver_ropaths():
+    # Generates the driver_paths list from the driver_routes list
+    # Uses data_locations to get the coordinates of the nodes
+    global driver_paths
+    driver_paths = [[] for _ in range(len(driver_routes))]
+    for i in range(len(driver_routes)):
+        for route in driver_routes[i]:
+            node_index = route[0]
+            driver_paths[i].append([
+                data_locations[node_index]["lat"],
+                data_locations[node_index]["lon"]
+            ])
+    
+
