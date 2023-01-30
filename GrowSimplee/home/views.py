@@ -4,7 +4,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.files import File
 import pandas as pd
 import requests
-from geopy.geocoders import Nominatim
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import urllib.parse
@@ -100,6 +99,28 @@ def dispatch_addresses(request):
     response['message'] = 'Dispatch Addresses'
     return JsonResponse(response)
 
+@csrf_exempt
+def data_form(request):
+    print(request.POST)
+    print(request.FILES)
+    number_of_vehicles = int(request.POST['number_of_vehicles'][0])
+    vehicle_capacity = []
+    for i in range (number_of_vehicles):
+        current_capacity = int(request.POST['vehicle_'+str(i)+'_capacity'])
+        vehicle_capacity.append(current_capacity)
+    dispatch_addresses = request.FILES['dispatch_addresses']
+    dispatch_df = pd.read_excel(dispatch_addresses)
+    pickup_addresses = request.FILES['pickup_addresses']
+    pickup_df = pd.read_excel(pickup_addresses)
+    
+    print(number_of_vehicles)
+    print(vehicle_capacity)
+    print(dispatch_df)
+    print(pickup_df)
+    response = {}
+    response['status'] = 'OK'
+    response['message'] = 'Data added successfully'
+    return JsonResponse(response)
 
 def driver_route(request):
     index = request.GET.get('index')
