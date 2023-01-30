@@ -1,5 +1,6 @@
 import React,{useState,useEffect} from 'react'
 import MapContainerRoutes from './MapContainerRoutes';
+import AdminForm from './AdminForm';
 import axios from 'axios';
 import { Button, Container } from 'react-bootstrap';
 
@@ -49,17 +50,9 @@ export default function Admin() {
   return (
     <div>
       <h2>Admin</h2>
-      <form 
-      onSubmit={sendFile}
-      //action="http://localhost:8000/dispatch_addresses" 
-      method="POST" enctype="multipart/form-data" >
-        <input type="file" name="file" 
-          accept=".xls,.xlsx,.csv,.txt" 
-          onChange={e => setFile({ file: e.target.files[0] })} />
-        <button type="submit">Send</button>
-      </form>
       <MapContainerRoutes routes={routes}/>
       {/* Add a form to add a dynamic waypoint */}
+      <AdminForm />
       <form onSubmit={addWayPoint}>
         <input type="text" name="waypoint" />
         <button type="submit">Add Waypoint</button>
