@@ -120,19 +120,21 @@ function Data() {
       </div>
 
       <div className='w-full my-4 flex justify-center flex-col md:flex-col lg:flex-col'>
-        {/* Batch menu button */}
-        <label htmlFor="batchlabel" className="form-label text-bold text-3xl mx-auto inline-block mb-2 text-gray-700"
-        > Select Bag Dimensions </label>
-        <div className='mx-2 px-2 flex flex-row mx-auto'>
-          <label className='mx-2' htmlFor="dim1">60 x 60 x 100 cms</label>
-          <input type="checkbox" onChange={(e) => { }} name="Physics" id="Physics" />
-        </div>
+            {/* Batch menu button */} 
+            <div className="w-full px-3">
+              <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
+                Number of Bags of Dim (60 x 60 x 100 cms)
+              </label>
+              <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" />
 
+            </div>
+            <div className="w-full px-3">
+              <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
+                Number of Bags of Dim (80 x 80 x 100 cms)
+              </label>
+              <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" />
 
-        <div className='mx-2 px-2 flex flex-row mx-auto'>
-          <label htmlFor="Chem" className='mx-2'>80 x 80 x 100 cms</label>
-          <input type="checkbox" onChange={(e) => { }} name="Chem" id="Chem" />
-        </div>
+            </div>
       </div>
 
 

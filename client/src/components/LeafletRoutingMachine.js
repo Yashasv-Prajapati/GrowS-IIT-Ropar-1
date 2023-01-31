@@ -31,7 +31,7 @@ export default function LeafletRoutingMachine(props) {
         show: false,
         addWaypoints: false,
         routeWhileDragging: true,
-        draggableWaypoints: false,
+        draggableWaypoints: true,
         fitSelectedRoutes: true,
         showAlternatives: false
     }).addTo(map)

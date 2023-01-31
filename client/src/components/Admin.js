@@ -54,8 +54,8 @@ export default function Admin() {
       {/* Add a form to add a dynamic waypoint */}
       <AdminForm />
       <form onSubmit={addWayPoint}>
-        <input type="text" name="waypoint" />
-        <button type="submit">Add Waypoint</button>
+        <input className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" name="waypoint" />
+        <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Add Waypoint</button>
       </form>
       {/* Display the current routes */}
       <Container>
@@ -68,8 +68,8 @@ export default function Admin() {
               ))}
               <br/>
               <label>Change Route: (In the format of 2 1 4 3)</label>
-              <input type="text" name="route" />
-              <Button type="button" className="btn-primary" onClick={changeRoute(route)}>Change</Button>
+              <input type="text" className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" name="route" />
+              <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={changeRoute(route)}>Change</button>
             </li>
           ))}
         </ul>
