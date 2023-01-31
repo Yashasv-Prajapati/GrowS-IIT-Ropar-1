@@ -5,50 +5,50 @@ function Data() {
   
     const [vehicleNum, setvehicleNum] = useState(0)
     const [CapacityArr, setCapacityArr ] = useState(new Array(vehicleNum))
-    const [data, setData]=useState({
-      vehicleNum:null,
-      CapacityArr: null,
-      dispatchAdd: null,
-      pickupAdd: null
-    })
+    const [bagNum1, setbagNum1]=useState(0) // 60 60 100
+    const [bagNum2, setbagNum2]=useState(0) // 80 80 100
     const [dispatchAdd, setDispatchAdd] = useState(null)
     const [pickupAdd, setPickUpAdd] = useState(null)
     
-    function sendData(e){
+    async function sendData(e){
       e.preventDefault()
-      if(data.vehicleNum==null ||data.vehicleNum==undefined){
-        return;
-      }
-      if(data.CapacityArr==null ||data.CapacityArr==undefined || data.CapacityArr.length==0){
-        return;
-      }
-      if(data.dispatchAdd==null ||data.dispatchAdd==undefined){
-        return;
-      }
-      if(data.pickupAdd==null ||data.pickupAdd==undefined){
-        return;
-      }
+
+      // setting data for sending
+      const formData = new FormData();
+      formData.append('vehicleNum', vehicleNum)
+      formData.append('CapacityArr', CapacityArr)
+      formData.append('dispatchAdd', dispatchAdd)
+      formData.append('pickupAdd', pickupAdd)
+      formData.append('bagNum1', bagNum1)
+      formData.append('bagNum2', bagNum2)
 
       fetch("http://localhost:8000/add_data", {
         method:'post',
-        body:JSON.stringify(data),
-        headers:{
-          'Content-Type':'application/json'
-        }
+        body:formData
       }).then(response=>{
         response.json().then((data)=>{
+          console.log(data)
           console.log(data)
         })
       }).catch(err=>{
         console.log(err)
-      })
 
+      })
+      
     }
 
-  useEffect(() => {
-  }, [vehicleNum])
 
-  const setMyTestInfo = 0
+  function setMyData(e){
+    if(e.target.name==="bagNum1"){
+      setbagNum1(parseInt(e.target.value))
+    }else{
+      setbagNum2(parseInt(e.target.value))
+    }
+  }
+
+  
+  useEffect(() => { // REDUNDANT CODE BLOCK
+  }, [vehicleNum])
 
   const setVehicleNumber = (e) => {
     try {
@@ -71,15 +71,15 @@ function Data() {
 
   return (
 
-    <form className="w-full max-w-lg lg:mx-auto md:mx-auto bg-orange-200 p-4 m-4 mx-auto border-8 border-orange-100 rounded"
-      action="http://localhost:8000/data_form"
-      method="POST" enctype="multipart/form-data"
+    <form onSubmit={sendData} className="w-full max-w-lg lg:mx-auto md:mx-auto bg-orange-200 p-4 m-4 mx-auto border-8 border-orange-100 rounded"
+      // action="http://localhost:8000/data_form"
+      // method="POST" enctype="multipart/form-data"
     >
       <div className="p-2 m-2">
         <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-first-name">
           Dispatch Addresses
         </label>
-        <input className="appearance-none block w-full bg-gray-200 text-gray-700 border border-red-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"
+        <input onChange={(e)=>{setDispatchAdd(e.target.files[0])}} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-red-500 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white"
           id="grid-first-name" type="file"
           name="dispatch_addresses"
           accept=".xls,.xlsx,.csv,.txt" />
@@ -88,7 +88,7 @@ function Data() {
         <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-last-name">
           Dynamic Pickup Addresses
         </label>
-        <input className="appearance-none bl  ock w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
+        <input onChange={(e)=>{setPickUpAdd(e.target.files[0])}} className="appearance-none bl  ock w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
           id="grid-last-name" type="file"
           name="pickup_addresses"
           accept=".xls,.xlsx,.csv,.txt" />
@@ -125,14 +125,14 @@ function Data() {
               <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
                 Number of Bags of Dim (60 x 60 x 100 cms)
               </label>
-              <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" />
+              <input onChange={setMyData} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" name="bagNum1" />
 
             </div>
             <div className="w-full px-3">
               <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
                 Number of Bags of Dim (80 x 80 x 100 cms)
               </label>
-              <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" />
+              <input onChange={setMyData} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-password" type="number" name="bagNum2"/>
 
             </div>
       </div>

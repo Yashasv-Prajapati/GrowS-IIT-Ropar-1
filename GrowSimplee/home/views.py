@@ -50,19 +50,33 @@ import urllib.parse
 
 # Data needed to be passed : ‘Demands’, ‘Time windows’, ‘Vehicle capacities’, ‘Distance matrix’ and ‘Time matrix’
 
-data_locations = {}
+data = {}
+"""
+    data['time_windows']
+    data['demands']
+    data['vehicle_capacities']
+    data['distance_matrix']
+    data['time_matrix']
+    data['num_vehicles']
+    data['depot']
+"""
+# put data from process_data here
+data_locations = []
 """
 Stores the address, latitude and longitude of different items
 here key is the index of the item, i.e. node_index
 Format:
-{
-    0: {
+[
+    {
         'address': 'Address 1',
+        'type': 'drop'/'pickup'/'depot',
         'lat': latitude,
         'lon': longitude
+        'eod': date/time
+        'demand: weight/volume
     },
     ...
-}
+]
 """
 
 driver_routes = []
@@ -110,7 +124,83 @@ Format:
 ]
 """
 
+all_driver_path_history = []
+"""
+Format:
+Global path history for all the drivers
+[   
+    [
+        [        # Path for driver 0
+            [lat0, long0],
+            [lat1, long1],
+            [lat2, long2],
+            ...
+        ],
+        [        # Path for driver 1
+            [latg0, long0],
+            [latg1, long1],
+            [latg2, long2],
+            ...
+        ],
+        ...
+    ],
+    [
+        [        # Path for driver 0
+            [lat0, long0],
+            [lat1, long1],
+            [lat2, long2],
+            ...
+        ],
+        [        # Path for driver 1
+            [latg0, long0],
+            [latg1, long1],
+            [latg2, long2],
+            ...
+        ],
+        ...
+    ]
+]
+"""
 
+completed_deliveries = 0
+
+def get_lati_long(addresses):
+    # Have to build the distance matrix from here
+    for i in range (len(addresses)):
+        addresses[i] = addresses[i].strip()
+        url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(addresses[i]) +'?format=json'
+        response = requests.get(url).json()
+        data_locations[i] = {
+            'address': addresses[i],
+            'lat': response[i]["lat"],
+            'lon': response[i]["lon"]
+        }
+
+def get_distance_between(lat1, lon1, lat2, lon2):
+    """
+    Returns the distance between two points
+    """
+    # Search for an API to get the distance between two points (Possibly OSM API)
+    # For now, just return a random number
+    return 10
+
+
+def build_distance_matrix(locations_list):
+    """
+    Builds the distance matrix for the data_locations
+    """
+    distance_matrix = []
+    for i in range(len(locations_list)):
+        distance_matrix.append([])
+        for j in range(len(locations_list)):
+            distance_matrix[i].append(0)
+    for i in range(len(locations_list)):
+        for j in range(len(locations_list)):
+            if i == j or locations_list[i].address == locations_list[j].address:
+                distance_matrix[i][j] = 0
+            else:
+                distance_matrix[i][j] = get_distance_between(locations_list[i]['lat'], locations_list[i]['lon'], locations_list[j]['lat'], locations_list[j]['lon'])
+    return distance_matrix
 
 def index(request):
     response = {}
@@ -123,18 +213,6 @@ def droplocations(request):
     response['status'] = 'OK'
     response['message'] = 'This is the drop locations page'
     return JsonResponse(response)
-
-def get_distance(addresses):
-    # Have to build the distance matrix from here
-    for i in range (len(addresses)):
-        addresses[i] = addresses[i].strip()
-        url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(addresses[i]) +'?format=json'
-        response = requests.get(url).json()
-        data_locations[i] = {
-            'address': addresses[i],
-            'lat': response[i]["lat"],
-            'lon': response[i]["lon"]
-        }
 
 
     # address = 'Shivaji Nagar, Bangalore, KA 560001'
@@ -149,9 +227,6 @@ def get_distance(addresses):
     # location = locator.geocode("1600 Amphitheatre Parkway, Mountain View, CA")
     # print(location)
 
-
-
-    pass
 @csrf_exempt
 def dispatch_addresses(request):
     if request.method == "POST":
@@ -161,7 +236,7 @@ def dispatch_addresses(request):
         df = pd.read_excel(file)
         # print(df)
         addresses = df['address'].tolist()
-        get_distance(addresses)
+        get_lati_long(addresses)
         pass
     response = {}   
     response['status'] = 'OK'
@@ -186,6 +261,9 @@ def data_form(request):
     print(vehicle_capacity)
     print(dispatch_df)
     print(pickup_df)
+
+    data['number_of_vehicles'] = number_of_vehicles
+    data['vehicle_capacity'] = vehicle_capacity
     response = {}
     response['status'] = 'OK'
     response['message'] = 'Data added successfully'
@@ -209,11 +287,62 @@ def admin_routes(request):
     response['routes'] = driver_routes
     return JsonResponse(response)
 
-def process_data(data):
-    print(data)
+@csrf_exempt
+def process_data(request):
+    
     response = {}
     response['status']='OK'
-    response['message']='success bitch'
+    response['message']='success'
+
+    dispatchAdd = request.FILES['dispatchAdd']
+    dispatchAdd_sheet = pd.read_excel(dispatchAdd)
+    
+    pickupAdd = request.FILES['pickupAdd']
+    pickupAdd_sheet = pd.read_excel(pickupAdd)
+    
+    # setting data for dispatchAdd
+    for row in range(dispatchAdd_sheet.shape[0]):
+        data_locations_dict = {}
+        data_locations_dict['address']= dispatchAdd_sheet['address'][row]
+        data_locations_dict['type']='drop'
+        data_locations.append(data_locations_dict)
+
+    # setting data for pickupAdd
+    for row in range(pickupAdd_sheet.shape[0]):
+        data_locations_dict = {}
+        data_locations_dict['address']= pickupAdd_sheet['address'][row]
+        data_locations_dict['type']='pickup'
+        data_locations.append(data_locations_dict)
+
+    # setting data for vehicle capacity, not really needed, to be looked at later
+    # print(request.POST['CapacityArr'])
+    # data['vehicle_capacity'] = request.POST['CapacityArr']
+
+    # setting data for number of vehicles
+    data['number_of_vehicles'] = int(request.POST['vehicleNum'])
+
+    # setting data for time window
+    # TODO: Need to set time window for each location
+
+    # setting data for demands
+    # TODO: Match the volume of sku and model them as demands
+    # Sku number -> Volume, Weight -> Need a file for this
+    # Need to add on frontend side
+
+    # Bag dimensions data
+    # TODO: Bag dimensions data -> Vehicle capacities thing
+    
+    # data locations -> Lat, Long 
+    # Either the company will provide lat, long or we will have to use some free api
+    # For now, waypoint_to_coord is used to get lat, long
+
+    # Initial solution called
+    # cvrptw_with_dropped_locations()
+
+    # For each pickup location, add_pickup_location is called
+    # for row in range(pickupAdd_sheet.shape[0]):
+    #     add_pickup_location(pickupAdd_sheet['address'][row])
+
     return JsonResponse(response)
 
 
@@ -223,17 +352,13 @@ def waypoint_to_coord(query):
     api = f'http://api.positionstack.com/v1/forward?access_key=318745546a93fdc9015a27db5a3fe5bc&query=${query}'
     response = requests.get(api)
     data = response.json()
-    print(data)
     return data['data'][0]['latitude'], data['data'][0]['longitude']
-
-
-
+ 
 def create_data_model():
     """Stores the data for the problem."""
 
     # In this we need to create time matrix using the DISTANCE API
     # Time window, vehicle capacity, demands, num_vehicles will be provided in the data
-    data = {}
     data['time_matrix'] = [
                 [0, 6, 9, 8, 7, 3, 6, 2, 3, 2, 6, 6, 4, 4, 5, 9, 7],
                 [6, 0, 8, 3, 2, 6, 8, 4, 8, 8, 13, 7, 5, 8, 12, 10, 14],
@@ -397,7 +522,6 @@ def cvrptw_with_dropped_locations():
     solution = None
     if assignment:
         solution = get_solution(data, manager, routing, assignment, time_callback)
-    
 
 @csrf_exempt
 def get_waypoint_to_coord(request):
@@ -405,7 +529,7 @@ def get_waypoint_to_coord(request):
     query = request.GET.get('query')
     print("query",query)
     lat, lon = waypoint_to_coord(query)
-    print(lat,lon)
+    #print(lat,lon)
     response = {}
     response['status'] = 'OK'
     response['message'] = 'Waypoint to coordinates'
@@ -446,8 +570,6 @@ def find_kth_delivery_item(k):
         print("IndexError in find_kth_delivery_item function: k is greater than the number of items being delivered")
 
 
-
-
 def update_driver_routes(k):
     # This function updates the driver_routes list after the kth delivery item has been delivered
     # All the items before the kth item will be removed from the list
@@ -477,7 +599,6 @@ def update_driver_routes(k):
         updated_driver_routes[driver_index].append(all_items[i][2:])
     
     # Updating the driver_routes list
-    global driver_routes
     driver_routes = updated_driver_routes
 
 def date_driver_ropaths():
@@ -494,3 +615,137 @@ def date_driver_ropaths():
             ])
     
 
+def add_pickup_point(address,demand,k):
+    '''
+    This function adds a pickup point to the driver_routes list and gives the updated routes
+    k - After which kth delivery the pickup point is to be added
+    '''
+
+    additional_deliveries = k - completed_deliveries
+    completed_deliveries = k
+
+    delivery_item = find_kth_delivery_item(additional_deliveries)
+    # delivery_item = [driver_index, node_index, route_load, total_time]
+    # Will have to use this last time to create waiting times to solve the in-between nodes problem
+    last_time = delivery_item[3]
+
+    # Routes_time: Time taken to reach the next node... have to add waiting time to this
+    # Routes_load: Load of the route at the next node (This has to be checked)
+    routes_time = []
+    routes_load = []
+    for routes in driver_routes:
+        routes_time.append(routes[0][2]-last_time)
+        routes_load.append(routes[0][1])
+
+    # This will update the driver_routes list
+    # These updated paths will serve as initial paths for the new pickup point
+    all_driver_path_history.append(all_driver_path)
+    update_driver_routes(additional_deliveries)
+
+    # This will update the driver_paths list
+    date_driver_ropaths()
+
+    # Build a distance matrix for this pickup point
+    pickup_point = waypoint_to_coord(address)
+    lat = pickup_point[0]
+    lon = pickup_point[1]
+    pickup_point = [lat, lon]
+
+    # How parameters will be changed that will have to seen
+    # Updated routes will be used as initial routes
+    # 1.
+    # Updated route start point will be used as initial route start point... This have to be set starting point for vehicle
+    # But vehicle can be between two nodes... how to manage that thing
+    # 2.
+    # Capacity of the vehicle will be cumulative weight till that point
+    # That will also have to be set as initial capacity of the vehicle
+    
+    locations_list = []
+    # For each delivery item, we will have to add duplicate depot and delivery point with demands [-x,x]
+    # For each pickup item, we will have to add pickup point and duplicate depot with demands [x,-x]
+    # [depot, pickup_point, duplicate_depot...,  duplicate_depot, delivery_point, duplicate_depot, delivery_point...]
+    build_locations_list()
+
+    data['depot'] = 0
+    data['time_matrix'] = create_distance_matrix(locations_list)
+
+    # Create the routing index manager
+    manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
+    
+    # Create Routing Model
+    routing = pywrapcp.RoutingModel(manager)
+
+    # Create and register a transit callback.
+    def time_callback(from_index, to_index):
+        """Returns the travel time between the two nodes."""
+        # Convert from routing variable Index to time matrix NodeIndex.
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['time_matrix'][from_node][to_node]
+
+    transit_callback_index = routing.RegisterTransitCallback(time_callback)
+
+    # Define cost of each arc.
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+    # Add Capacity constraint.
+    def demand_callback(from_index):
+        """Returns the demand of the node."""
+        # Convert from routing variable Index to demands NodeIndex.
+        from_node = manager.IndexToNode(from_index)
+        return data['demands'][from_node]
+
+    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
+
+    # Have to change the capacity of the vehicle... have to set it as cumulative weight till that point
+    routing.AddDimensionWithVehicleCapacity(
+        demand_callback_index,
+        0,  # null capacity slack
+        data['vehicle_capacities'],  # vehicle maximum capacities
+        True,  # start cumul to zero
+        'Capacity')
+    
+    # Allow to drop nodes.
+    penalty = 1000
+    for node in range(1, len(data['time_matrix'])):
+        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+
+    # Add Time Windows constraint.
+    # Have to change the time window of the vehicle... have to set it as cumulative time till that point
+    time = 'Time'
+    # routing.AddDimension(transit_callback_index,
+    #     30,  # allow waiting time
+    #     30,  # maximum time per vehicle
+    #     False,  # Don't force start cumul to zero.
+    #     time)
+    time_dimension = routing.GetDimensionOrDie(time)
+    
+    # Add time window constraints for each location except depot.
+    for location_idx, time_window in enumerate(data['time_windows']):
+        if location_idx == 0:
+            continue
+        index = manager.NodeToIndex(location_idx)
+        time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+
+    # Setting first solution heuristic.
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
+    search_parameters.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
+    
+    # search_parameters.time_limit.FromSeconds(30)
+
+    # Solve the problem.
+    assignment = routing.SolveWithParameters(search_parameters)
+
+    # Things to do:
+    # 1. Add routes_time as initial time for the vehicle... vehicle should start from start node after this time
+    # 2. Add routes_load as initial load for the vehicle... vehicle should start from start node with this load
+    # 3. Add pickup_point as a new node in the locations_list
+    # 4. Construct locations_list and demand with multiple depots (location time written above)
+    # 5. To identify whether a location is depot/drop/pickup, you can access the data_locations array
+
+# Things to do in frontend:-
+# 1. Manual editing of routes (Within routes and global
+# 2. Styling of the pages (Finish touch)
