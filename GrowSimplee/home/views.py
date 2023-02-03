@@ -7,7 +7,11 @@ import requests
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import urllib.parse
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+API_KEY = os.getenv('API_KEY')
 # Create your views here.
 # Data Structures for the routes
 # Dictionary for SKUs and their weights and voulumes
@@ -294,25 +298,29 @@ def process_data(request):
     response['status']='OK'
     response['message']='success'
 
-    dispatchAdd = request.FILES['dispatchAdd']
-    dispatchAdd_sheet = pd.read_excel(dispatchAdd)
-    
-    pickupAdd = request.FILES['pickupAdd']
-    pickupAdd_sheet = pd.read_excel(pickupAdd)
-    
-    # setting data for dispatchAdd
-    for row in range(dispatchAdd_sheet.shape[0]):
-        data_locations_dict = {}
-        data_locations_dict['address']= dispatchAdd_sheet['address'][row]
-        data_locations_dict['type']='drop'
-        data_locations.append(data_locations_dict)
+    # checking dispatchAdd
+    if 'dispatchAdd' in request.FILES:
+        dispatchAdd = request.FILES['dispatchAdd']
+        dispatchAdd_sheet = pd.read_excel(dispatchAdd)
 
-    # setting data for pickupAdd
-    for row in range(pickupAdd_sheet.shape[0]):
-        data_locations_dict = {}
-        data_locations_dict['address']= pickupAdd_sheet['address'][row]
-        data_locations_dict['type']='pickup'
-        data_locations.append(data_locations_dict)
+        # setting data for dispatchAdd
+        for row in range(dispatchAdd_sheet.shape[0]):
+            data_locations_dict = {}
+            data_locations_dict['address']= dispatchAdd_sheet['address'][row]
+            data_locations_dict['type']='drop'
+            data_locations.append(data_locations_dict)
+    
+    # checking pickupAdd
+    if 'pickupAdd' in request.FILES:
+        pickupAdd = request.FILES['pickupAdd']
+        pickupAdd_sheet = pd.read_excel(pickupAdd)
+
+        # setting data for pickupAdd
+        for row in range(pickupAdd_sheet.shape[0]):
+            data_locations_dict = {}
+            data_locations_dict['address']= pickupAdd_sheet['address'][row]
+            data_locations_dict['type']='pickup'
+            data_locations.append(data_locations_dict)
 
     # setting data for vehicle capacity, not really needed, to be looked at later
     # print(request.POST['CapacityArr'])
@@ -347,13 +355,13 @@ def process_data(request):
 
 
 def waypoint_to_coord(query):
-    # Need a api that accuractely converts a waypoint to coordinates, for now using positionstack, later will replace this with a better api
-    # Fetch from the api
-    api = f'http://api.positionstack.com/v1/forward?access_key=318745546a93fdc9015a27db5a3fe5bc&query=${query}'
-    response = requests.get(api)
+    # Using Google Maps API
+    base_url = 'https://maps.googleapis.com/maps/api/geocode/json?'
+    response = requests.get(base_url,params={'address':query,'key':API_KEY})
     data = response.json()
-    return data['data'][0]['latitude'], data['data'][0]['longitude']
- 
+    # print(data)
+    return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng'] 
+
 def create_data_model():
     """Stores the data for the problem."""
 
