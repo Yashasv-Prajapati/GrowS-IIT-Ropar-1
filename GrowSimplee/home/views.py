@@ -185,20 +185,14 @@ def build_time_matrix(locations_list):
     Builds the distance matrix for the data_locations
     This will also take care of the api limit
     """
-    # This API is not giving the correct results, I don't know why
-    # Will have to test it later
     base_url = "https://api.openrouteservice.org/v2/matrix/driving-car"
     time_matrix = []
-    for i in range(len(locations_list)):
-        time_matrix.append([])
-        for j in range(len(locations_list)):
-            time_matrix[i].append(0)
 
     query_point = 2500//len(locations_list)
 
     locations_lat_long = []
     for i in range(len(locations_list)):
-        locations_lat_long.append([locations_list[i]['lat'],locations_list[i]['lon']])
+        locations_lat_long.append([locations_list[i]['lon'],locations_list[i]['lat']])
 
     with open('locations_lat_long.json','w') as f:
         json.dump(locations_lat_long,f)
@@ -215,8 +209,6 @@ def build_time_matrix(locations_list):
         })
         data_res = response.json()
         print(data_res)
-        if data_res['durations'] == None:
-            print('Error in the API response')
         time_matrix.append(data_res['durations'])
     
     data_store_time_matrix = time_matrix
@@ -226,7 +218,7 @@ def build_time_matrix(locations_list):
     return time_matrix
 
 # Test the build_time_matrix function
-build_time_matrix([{'lat':9.70093,'lon':48.477473},{'lat':9.207916,'lon':49.153868},{'lat':37.573242,'lon':55.801281},{'lat':115.663757,'lon':38.106467}])
+# build_time_matrix([{'lat':9.70093,'lon':48.477473},{'lat':9.207916,'lon':49.153868},{'lat':37.573242,'lon':55.801281},{'lat':115.663757,'lon':38.106467}])
 
 def bag_creation_strategy(bag_num_1,bag_num_2,num_vehicles):
     """
