@@ -13,6 +13,7 @@ import json
 
 load_dotenv()
 API_KEY = os.getenv('API_KEY')
+ORS_API_KEY = os.getenv('ORS_API_KEY')
 # Create your views here.
 # Data Structures for the routes
 # Dictionary for SKUs and their weights and voulumes
@@ -167,45 +168,102 @@ Global path history for all the drivers
 ]
 """
 
+data_store_time_matrix = []
 completed_deliveries = 0
 
-def get_lati_long(addresses):
-    # Have to build the distance matrix from here
-    for i in range (len(addresses)):
-        addresses[i] = addresses[i].strip()
-        url = 'https://nominatim.openstreetmap.org/search/' + urllib.parse.quote(addresses[i]) +'?format=json'
-        response = requests.get(url).json()
-        data_locations[i] = {
-            'address': addresses[i],
-            'lat': response[i]["lat"],
-            'lon': response[i]["lon"]
-        }
-
-def get_distance_between(lat1, lon1, lat2, lon2):
-    """
-    Returns the distance between two points
-    """
-    # Search for an API to get the distance between two points (Possibly OSM API)
-    # For now, just return a random number
-    return 10
+def get_lati_long(query):
+    # Using Google Maps API
+    base_url = 'https://maps.googleapis.com/maps/api/geocode/json?'
+    response = requests.get(base_url,params={'address':query,'key':API_KEY})
+    data = response.json()
+    # print(data)
+    return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 
-def build_distance_matrix(locations_list):
+def build_time_matrix(locations_list):
     """
     Builds the distance matrix for the data_locations
+    This will also take care of the api limit
     """
-    distance_matrix = []
+    # This API is not giving the correct results, I don't know why
+    # Will have to test it later
+    base_url = "https://api.openrouteservice.org/v2/matrix/driving-car"
+    time_matrix = []
     for i in range(len(locations_list)):
-        distance_matrix.append([])
+        time_matrix.append([])
         for j in range(len(locations_list)):
-            distance_matrix[i].append(0)
+            time_matrix[i].append(0)
+
+    query_point = 2500//len(locations_list)
+
+    locations_lat_long = []
     for i in range(len(locations_list)):
-        for j in range(len(locations_list)):
-            if i == j or locations_list[i].address == locations_list[j].address:
-                distance_matrix[i][j] = 0
-            else:
-                distance_matrix[i][j] = get_distance_between(locations_list[i]['lat'], locations_list[i]['lon'], locations_list[j]['lat'], locations_list[j]['lon'])
-    return distance_matrix
+        locations_lat_long.append([locations_list[i]['lat'],locations_list[i]['lon']])
+
+    with open('locations_lat_long.json','w') as f:
+        json.dump(locations_lat_long,f)
+
+    for i in range(0,len(locations_list),query_point):
+        response = requests.post(base_url,json={
+            "locations": locations_lat_long,
+            "metrics": ["duration"],
+            "units": "m",
+            "sources": [j for j in range(i,min(i+query_point,len(locations_list)))],
+        },
+        headers={
+            "Authorization": ORS_API_KEY,
+        })
+        data_res = response.json()
+        print(data_res)
+        if data_res['durations'] == None:
+            print('Error in the API response')
+        time_matrix.append(data_res['durations'])
+    
+    data_store_time_matrix = time_matrix
+    data['time_matrix'] = time_matrix
+    with open('time_matrix.json','w') as f:
+        json.dump(time_matrix,f)
+    return time_matrix
+
+# Test the build_time_matrix function
+build_time_matrix([{'lat':9.70093,'lon':48.477473},{'lat':9.207916,'lon':49.153868},{'lat':37.573242,'lon':55.801281},{'lat':115.663757,'lon':38.106467}])
+
+def bag_creation_strategy(bag_num_1,bag_num_2,num_vehicles):
+    """
+    Returns the bag creation strategy
+    bag_num_1 : Number of bags of type 1 (60 X 60 X 100 CMS = 36000 CM3) 
+    bag_num_2 : Number of bags of type 2 (80 X 80 X 100 CMS = 64000 CM3)
+    """
+    capacity_1 = 36000
+    capacity_2 = 64000
+    # divide the bags of different capacities into vehicles such that volume of each vehicle is almost equal
+    # return a list of lists, where each list contains the number of bags of each type in that vehicle
+
+    vehicles_bag_list = [[0,0,0] for i in range(num_vehicles)]
+
+    for i in range(num_vehicles):
+        vehicles_bag_list[i][0] = bag_num_1//num_vehicles
+        vehicles_bag_list[i][1] = bag_num_2//num_vehicles
+        vehicles_bag_list[i][2] = bag_num_1//num_vehicles * capacity_1 + bag_num_2//num_vehicles * capacity_2
+
+    vehicles_bag_list.sort(key = lambda x: x[2])
+
+    for i in range(bag_num_1%num_vehicles):
+        vehicles_bag_list[i][0] += 1
+        vehicles_bag_list[i][2] += capacity_1
+
+    vehicles_bag_list.sort(key = lambda x: x[2])
+
+    for i in range(bag_num_2%num_vehicles):
+        vehicles_bag_list[i][1] += 1
+        vehicles_bag_list[i][2] += capacity_2
+
+    vehicle_demands = [0 for i in range(num_vehicles)]
+    for i in range(num_vehicles):
+        vehicle_demands[i] = vehicles_bag_list[i][2]
+
+    data['vehicle_demands'] = vehicle_demands
+    return vehicles_bag_list
 
 def index(request):
     response = {}
@@ -299,6 +357,12 @@ def process_data(request):
     response['status']='OK'
     response['message']='success'
 
+    print("hi")
+
+    # read the data from the file data_locations.json into data_locations
+    with open('data_locations.json', 'r') as f:
+        data_locations = json.load(f)
+
     # checking dispatchAdd
     if 'dispatchAdd' in request.FILES:
         dispatchAdd = request.FILES['dispatchAdd']
@@ -306,9 +370,16 @@ def process_data(request):
 
         # setting data for dispatchAdd
         for row in range(dispatchAdd_sheet.shape[0]):
+            # check if the address is already present in the data_locations
+            if dispatchAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
+                continue
+            print("hi")
             data_locations_dict = {}
             data_locations_dict['address']= dispatchAdd_sheet['address'][row]
             data_locations_dict['type']='drop'
+            lat, lon = get_lati_long(data_locations_dict['address'])
+            data_locations_dict['lat'] = lat
+            data_locations_dict['lon'] = lon
             data_locations.append(data_locations_dict)
     
     # checking pickupAdd
@@ -318,9 +389,16 @@ def process_data(request):
 
         # setting data for pickupAdd
         for row in range(pickupAdd_sheet.shape[0]):
+            # check if the address is already present in the data_locations
+            if pickupAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
+                continue
+            print("hi")
             data_locations_dict = {}
             data_locations_dict['address']= pickupAdd_sheet['address'][row]
             data_locations_dict['type']='pickup'
+            lat, lon = get_lati_long(data_locations_dict['address'])
+            data_locations_dict['lat'] = lat
+            data_locations_dict['lon'] = lon
             data_locations.append(data_locations_dict)
 
     # saving data_locations to data_locations.json
@@ -332,7 +410,8 @@ def process_data(request):
     # data['vehicle_capacity'] = request.POST['CapacityArr']
 
     # setting data for number of vehicles
-    data['number_of_vehicles'] = int(request.POST['vehicleNum'])
+    if 'vehicleNum' in request.POST:
+        data['number_of_vehicles'] = int(request.POST['vehicleNum'])
 
     # setting data for time window
     # TODO: Need to set time window for each location
@@ -344,6 +423,8 @@ def process_data(request):
 
     # Bag dimensions data
     # TODO: Bag dimensions data -> Vehicle capacities thing
+    if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'number_of_vehicles' in data:
+        bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['number_of_vehicles'])
     
     # data locations -> Lat, Long 
     # Either the company will provide lat, long or we will have to use some free api
@@ -356,16 +437,16 @@ def process_data(request):
     # for row in range(pickupAdd_sheet.shape[0]):
     #     add_pickup_location(pickupAdd_sheet['address'][row])
 
+    if data_locations is not None:
+        build_time_matrix(locations_list=data_locations)
+
+    with open('data.json', 'w') as outfile:
+        json.dump(data, outfile)
+
     return JsonResponse(response)
 
 
-def waypoint_to_coord(query):
-    # Using Google Maps API
-    base_url = 'https://maps.googleapis.com/maps/api/geocode/json?'
-    response = requests.get(base_url,params={'address':query,'key':API_KEY})
-    data = response.json()
-    # print(data)
-    return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
+
 
 def create_data_model():
     """Stores the data for the problem."""
@@ -541,7 +622,7 @@ def get_waypoint_to_coord(request):
     # read the query from the request
     query = request.GET.get('query')
     print("query",query)
-    lat, lon = waypoint_to_coord(query)
+    lat, lon = get_lati_long(query)
     #print(lat,lon)
     response = {}
     response['status'] = 'OK'
@@ -659,7 +740,7 @@ def add_pickup_point(address,demand,k):
     date_driver_ropaths()
 
     # Build a distance matrix for this pickup point
-    pickup_point = waypoint_to_coord(address)
+    pickup_point = get_lati_long(address)
     lat = pickup_point[0]
     lon = pickup_point[1]
     pickup_point = [lat, lon]
@@ -762,3 +843,8 @@ def add_pickup_point(address,demand,k):
 # Things to do in frontend:-
 # 1. Manual editing of routes (Within routes and global
 # 2. Styling of the pages (Finish touch)
+
+with open('data_locations.json', 'r') as f:
+    data_locations = json.load(f)
+
+print(len(data_locations))
