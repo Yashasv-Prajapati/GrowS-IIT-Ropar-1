@@ -9,6 +9,7 @@ from ortools.constraint_solver import pywrapcp
 import urllib.parse
 from dotenv import load_dotenv
 import os
+import json
 
 load_dotenv()
 API_KEY = os.getenv('API_KEY')
@@ -322,6 +323,10 @@ def process_data(request):
             data_locations_dict['type']='pickup'
             data_locations.append(data_locations_dict)
 
+    # saving data_locations to data_locations.json
+    with open('data_locations.json', 'w') as outfile:
+        json.dump(data_locations, outfile)
+
     # setting data for vehicle capacity, not really needed, to be looked at later
     # print(request.POST['CapacityArr'])
     # data['vehicle_capacity'] = request.POST['CapacityArr']
@@ -360,7 +365,7 @@ def waypoint_to_coord(query):
     response = requests.get(base_url,params={'address':query,'key':API_KEY})
     data = response.json()
     # print(data)
-    return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng'] 
+    return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 def create_data_model():
     """Stores the data for the problem."""
