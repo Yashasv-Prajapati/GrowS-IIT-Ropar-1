@@ -3,10 +3,18 @@ import MapContainerRoutes from './MapContainerRoutes';
 import AdminForm from './AdminForm';
 import axios from 'axios';
 import { Button, Container } from 'react-bootstrap';
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer, DirectionsService } from '@react-google-maps/api';
 
 export default function Admin() {
   const [routes,setRoutes] = useState([[[28,77],[28.5,77.5]],[[29.5,77.5],[29,77], [30,79], [40.5,79.5]]])
   const [file, setFile] = useState(null);
+  const [directionInfo, setDirectionInfo] = useState(new Array(routes.length).fill(null));
+
+  const isLoaded = false;
+
+  // const {isLoaded} = useJsApiLoader({
+  //   googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY
+  // })
 
   const [changedRoute, setChangedRoute] = useState("");
   const sendFile = async (e) => {
@@ -84,7 +92,55 @@ export default function Admin() {
 
   return (
     <div>
-      <h2 className='bg-blue-400 p-4 m-4 text-center w-1/3 mx-auto'>Admin</h2>
+      <h2>Admin</h2>
+      {
+        isLoaded ? (
+          <>
+            <div>Google Map</div>
+            <GoogleMap center={{lat: 28, lng: 77}} zoom={10} mapContainerStyle={{width:'70vw',height:'70vh','margin-left':'auto','margin-right':'auto'}}>
+              <Marker position={{lat: 28, lng: 77}} />
+              {/* Write a code to plot a route on Google Maps */}
+              { directionInfo.map((direction,index) => {
+                if (direction === null) {
+                  return null;
+                }
+                return (
+                  <DirectionsRenderer options={{directions: direction}}/>
+                )
+              })}
+              {routes.map((route,index) => {
+                return (
+                  <DirectionsService options={
+                    {
+                      origin : { lat: route[0][0], lng: route[0][1] },
+                      destination: { lat: route[route.length-1][0], lng: route[route.length-1][1] },
+                      waypoints: route.slice(1,route.length-1).map((point) => {
+                        return {
+                          location: { lat: point[0], lng: point[1] },
+                          stopover: true,
+                        }
+                      }
+                      ),
+                      travelMode: 'DRIVING',
+                    }
+                  }
+                  callback={(res) => {
+                    if (res !== null && directionInfo[index] === null) {
+                       setDirectionInfo((prev) => {
+                          prev[index] = res;
+                          return prev;
+                        })
+                    }
+                  }}/>
+                )})
+              }
+
+            </GoogleMap>
+          </>
+        ) : (
+          <div>Loading...</div>
+        )
+      }
       <MapContainerRoutes routes={routes}/>
       {/* Add a form to add a dynamic waypoint */}
       <AdminForm />
