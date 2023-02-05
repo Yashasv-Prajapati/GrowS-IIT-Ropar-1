@@ -10,6 +10,9 @@ import urllib.parse
 from dotenv import load_dotenv
 import os
 import json
+import cv2
+import numpy as np
+from multimethod import multimethod
 
 load_dotenv()
 API_KEY = os.getenv('API_KEY')
@@ -169,6 +172,7 @@ Global path history for all the drivers
 """
 
 data_store_time_matrix = []
+data_store_distance_matrix = []
 completed_deliveries = 0
 
 def get_lati_long(query):
@@ -180,13 +184,14 @@ def get_lati_long(query):
     return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 
-def build_time_matrix(locations_list):
+def build_time_distance_matrix(locations_list):
     """
     Builds the distance matrix for the data_locations
     This will also take care of the api limit
     """
     base_url = "https://api.openrouteservice.org/v2/matrix/driving-car"
     time_matrix = []
+    distance_matrix = []
 
     query_point = 2500//len(locations_list)
 
@@ -200,7 +205,7 @@ def build_time_matrix(locations_list):
     for i in range(0,len(locations_list),query_point):
         response = requests.post(base_url,json={
             "locations": locations_lat_long,
-            "metrics": ["duration"],
+            "metrics": ["duration","distance"],
             "units": "m",
             "sources": [j for j in range(i,min(i+query_point,len(locations_list)))],
         },
@@ -210,15 +215,21 @@ def build_time_matrix(locations_list):
         data_res = response.json()
         print(data_res)
         time_matrix.append(data_res['durations'])
+        distance_matrix.append(data_res['distances'])
     
     data_store_time_matrix = time_matrix
+    data_store_distance_matrix = distance_matrix
+    data['distance_matrix'] = distance_matrix
     data['time_matrix'] = time_matrix
     with open('time_matrix.json','w') as f:
         json.dump(time_matrix,f)
-    return time_matrix
 
-# Test the build_time_matrix function
-# build_time_matrix([{'lat':9.70093,'lon':48.477473},{'lat':9.207916,'lon':49.153868},{'lat':37.573242,'lon':55.801281},{'lat':115.663757,'lon':38.106467}])
+    with open('distance_matrix.json','w') as f:
+        json.dump(distance_matrix,f)
+    return time_matrix, distance_matrix
+
+# Test the build_distance_matrix function
+# build_time_distance_matrix([{'lon':9.70093,'lat':48.477473},{'lon':9.207916,'lat':49.153868},{'lon':37.573242,'lat':55.801281},{'lon':115.663757,'lat':38.106467}])
 
 def bag_creation_strategy(bag_num_1,bag_num_2,num_vehicles):
     """
@@ -417,10 +428,6 @@ def process_data(request):
     # TODO: Bag dimensions data -> Vehicle capacities thing
     if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'number_of_vehicles' in data:
         bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['number_of_vehicles'])
-    
-    # data locations -> Lat, Long 
-    # Either the company will provide lat, long or we will have to use some free api
-    # For now, waypoint_to_coord is used to get lat, long
 
     # Initial solution called
     # cvrptw_with_dropped_locations()
@@ -430,15 +437,13 @@ def process_data(request):
     #     add_pickup_location(pickupAdd_sheet['address'][row])
 
     if data_locations is not None:
-        build_time_matrix(locations_list=data_locations)
+        # build_time_matrix(locations_list=data_locations)
+        build_time_distance_matrix(locations_list=data_locations)
 
     with open('data.json', 'w') as outfile:
         json.dump(data, outfile)
 
     return JsonResponse(response)
-
-
-
 
 def create_data_model():
     """Stores the data for the problem."""
@@ -774,16 +779,37 @@ def get_time_taken(k):
 
 #TODO
 def get_distance(address1, address2):
-    url = "https://maps.googleapis.com/maps/api/distancematrix/json?origins="+address1+"&destinations="+address2+"&key=AIzaSyDAHiXvLdpAhTMfnWbQgL2cigqtsFkfuFQ"
-    response = requests.request("GET", url)
-    data = response.json()
-    distance = data['rows'][0]['elements'][0]['distance']['text']
-    duration = data['rows'][0]['elements'][0]['duration']['text']
-    return (distance, duration)
+    # check if address1 and address2 are in the data_locations list or not, if they are, find their index and return the distance and time
+    # if they are not, then find the distance and time using google maps api and return it
+    node_index1 = -1
+    node_index2 = -1
+    option = 1
+    address_list = [data_locations_dict['address'] for data_locations_dict in data_locations]
+    if address1 in address_list:
+        node_index1 = address_list.index(address1)
+    if address2 in address_list:
+        node_index2 = address_list.index(address2)
+    if node_index1!=-1 and node_index2!=-1 and option == 1:
+        return (data_store_distance_matrix[0][node_index1][node_index2], data_store_time_matrix[0][node_index1][node_index2])
+    else:
+        url = "https://maps.googleapis.com/maps/api/distancematrix/json?origins="+address1+"&destinations="+address2+"&key=AIzaSyDAHiXvLdpAhTMfnWbQgL2cigqtsFkfuFQ"
+        response = requests.request("GET", url)
+        data = response.json()
+        distance = data['rows'][0]['elements'][0]['distance']['text']
+        duration = data['rows'][0]['elements'][0]['duration']['text']
+        return (distance, duration)
 
+# with open('data.json') as f:
+#     data = json.load(f)
+# with open('data_locations.json') as f:
+#     data_locations = json.load(f)
+# with open('time_matrix.json') as f:
+#     data_store_time_matrix = json.load(f)
+# with open('distance_matrix.json') as f:
+#     data_store_distance_matrix = json.load(f)
 # address1 = "6, Shakambari Nagar, 1st stage, JP Nagar, Bangalore"
 # address2 = "1, 24th Main Rd, 1st Phase, Girinagar, KR Layout, Muneshwara T-Block, JP Nagar, Bangalore"
-# get_distance(address1, address2)
+# print(get_distance(address1, address2))
 
 def count_ontime_deliveries(route):
     ontime_deliveries = 0
@@ -873,7 +899,75 @@ def add_pickup_point(pickup_address, demand, k):
 # 1. Manual editing of routes (Within routes and global
 # 2. Styling of the pages (Finish touch)
 
-with open('data_locations.json', 'r') as f:
-    data_locations = json.load(f)
+# This function gives the volume of the box using Depth Sensor 
+# Here img is the colored image with green background, h is the height using depth sensor 
+@multimethod
+def get_volume(img,h:int,ppm):
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    a_channel = lab[:,:,1]
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    th = 255-th
+    # cv2.imshow("plis",th)
+    cv2.imwrite("output.jpeg",th)
+    img = cv2.imread("output.jpeg")
+    img1 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img1= cv2.GaussianBlur(img1,(5,5),0)
+    ret,thresh = cv2.threshold(img1,100,255,0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    rect = cv2.minAreaRect(cnt)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
 
-print(len(data_locations))
+    # draw minimum area rectangle (rotated rectangle)
+    # img = cv2.drawContours(img,[box],0,(0,255,255),2)
+    # cv2.imshow("Bounding Rectangles", img)
+    l=np.linalg.norm(box[0]-box[1])
+    b=np.linalg.norm(box[1]-box[2])
+
+    return l*b*h/(ppm*ppm*ppm)
+
+# This function gives us the volume if we have two photos shot from perpendicular field of view
+@multimethod
+def get_volume(img_top,img_ver,ppm):
+    img = img_top
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    a_channel = lab[:,:,1]
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    masked = cv2.bitwise_and(img, img, mask = th)
+    th = 255-th
+    # cv2.imshow("plis",th)
+    cv2.imwrite("output.jpeg",th)
+    img = cv2.imread("output.jpeg")
+    img1 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img1= cv2.GaussianBlur(img1,(5,5),0)
+    ret,thresh = cv2.threshold(img1,100,255,0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    rect = cv2.minAreaRect(cnt)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+
+    # draw minimum area rectangle (rotated rectangle)
+    # img = cv2.drawContours(img,[box],0,(0,255,255),2)
+    # cv2.imshow("Bounding Rectangles", img)
+    l=np.linalg.norm(box[0]-box[1])
+    b=np.linalg.norm(box[1]-box[2])
+
+
+    img=img_ver
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    a_channel = lab[:,:,1]
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    th = 255-th
+    # cv2.imshow("plis",th)
+    cv2.imwrite("output.jpeg",th)
+    img = cv2.imread("output.jpeg")
+    img1 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img1= cv2.GaussianBlur(img1,(5,5),2)
+    ret,thresh = cv2.threshold(img1,100,255,0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    h = cv2.boundingRect(cnt)[3]
+
+    return l*b*h/(ppm*ppm*ppm)
