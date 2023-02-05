@@ -594,9 +594,12 @@ def update_driver_routes(k):
 
     # Creating updated driver_routes list
     updated_driver_routes = [[] for _ in range(len(driver_routes))]
+    driver_start_time = [-1]*len(driver_routes)
     for i in range(k, len(all_items)):
         driver_index = all_items[i][1]
         updated_driver_routes[driver_index].append(all_items[i][2:])
+        if driver_start_time[driver_index]==-1:
+            driver_start_time[driver_index] = time
     
     # Updating the driver_routes list
     driver_routes = updated_driver_routes
@@ -615,129 +618,120 @@ def date_driver_ropaths():
             ])
     
 
-def add_pickup_point(address,demand,k):
-    '''
-    This function adds a pickup point to the driver_routes list and gives the updated routes
-    k - After which kth delivery the pickup point is to be added
-    '''
+def get_time_taken(k):
+    # This function returns the time taken to complete k deliveries
 
-    additional_deliveries = k - completed_deliveries
-    completed_deliveries = k
-
-    delivery_item = find_kth_delivery_item(additional_deliveries)
-    # delivery_item = [driver_index, node_index, route_load, total_time]
-    # Will have to use this last time to create waiting times to solve the in-between nodes problem
-    last_time = delivery_item[3]
-
-    # Routes_time: Time taken to reach the next node... have to add waiting time to this
-    # Routes_load: Load of the route at the next node (This has to be checked)
-    routes_time = []
-    routes_load = []
+    # Creating a list of tuple of all items being delivered and then finally we will sort it to find kth item
+    # The tuple will be of the format (total_time, driver_index, node_index, route_load, time_taken)
+    all_items = []
+    driver_index = 0
     for routes in driver_routes:
-        routes_time.append(routes[0][2]-last_time)
-        routes_load.append(routes[0][1])
-
-    # This will update the driver_routes list
-    # These updated paths will serve as initial paths for the new pickup point
-    all_driver_path_history.append(all_driver_path)
-    update_driver_routes(additional_deliveries)
-
-    # This will update the driver_paths list
-    date_driver_ropaths()
-
-    # Build a distance matrix for this pickup point
-    pickup_point = waypoint_to_coord(address)
-    lat = pickup_point[0]
-    lon = pickup_point[1]
-    pickup_point = [lat, lon]
-
-    # How parameters will be changed that will have to seen
-    # Updated routes will be used as initial routes
-    # 1.
-    # Updated route start point will be used as initial route start point... This have to be set starting point for vehicle
-    # But vehicle can be between two nodes... how to manage that thing
-    # 2.
-    # Capacity of the vehicle will be cumulative weight till that point
-    # That will also have to be set as initial capacity of the vehicle
+        time = 0
+        for route in routes:
+            node_index = route[0]
+            route_load = route[1]
+            time_taken = route[2]
+            time += time_taken
+            all_items.append((time, driver_index, node_index, route_load, time_taken))
+        driver_index += 1
     
-    locations_list = []
-    # For each delivery item, we will have to add duplicate depot and delivery point with demands [-x,x]
-    # For each pickup item, we will have to add pickup point and duplicate depot with demands [x,-x]
-    # [depot, pickup_point, duplicate_depot...,  duplicate_depot, delivery_point, duplicate_depot, delivery_point...]
-    build_locations_list()
+    # Sorting the list of tuples
+    all_items.sort(key = lambda x: x[0])
 
-    data['depot'] = 0
-    data['time_matrix'] = create_distance_matrix(locations_list)
+    if k>len(all_items):
+        return float('inf')
+    else:
+        return all_items[k-1][0]
 
-    # Create the routing index manager
-    manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
+#TODO
+def get_distance(address1, address2):
+    url = "https://maps.googleapis.com/maps/api/distancematrix/json?origins="+address1+"&destinations="+address2+"&key=AIzaSyDAHiXvLdpAhTMfnWbQgL2cigqtsFkfuFQ"
+    response = requests.request("GET", url)
+    data = response.json()
+    distance = data['rows'][0]['elements'][0]['distance']['text']
+    duration = data['rows'][0]['elements'][0]['duration']['text']
+    return (distance, duration)
+
+# address1 = "6, Shakambari Nagar, 1st stage, JP Nagar, Bangalore"
+# address2 = "1, 24th Main Rd, 1st Phase, Girinagar, KR Layout, Muneshwara T-Block, JP Nagar, Bangalore"
+# get_distance(address1, address2)
+
+def count_ontime_deliveries(route):
+    ontime_deliveries = 0
+    total_time = 0
+    for node, load, time_taken in route:
+        total_time += time_taken
+        expected_time = data['time_windows'][node][1]
+        if total_time <= expected_time:
+            ontime_deliveries+=1
+    return ontime_deliveries
+
+
+def add_pickup_point(pickup_address, demand, k):
+    time_taken = get_time_taken(k)
+
+    # Finding the free capacity in vehicles after k deliveries
+    max_capacity = data['vehicle_capacities']
+
+    min_additional_cost = float('inf')
+    min_cost_driver = -1
+    min_cost_route = -1
+
+    for driver_index in range (len(driver_routes)):
+        free_capacity = 0
+        current_time = 0
+        for route_index in range (len(driver_routes[driver_index])-1):
+            free_capacity += driver_routes[driver_index][route_index][1]
+            current_time += driver_routes[driver_index][route_index][2]
+            
+            if free_capacity < demand or current_time < time_taken:
+                continue
+
+            route = driver_routes[driver_index][route_index]
+            node_index = route[0]
+
+            nxt_route = driver_routes[driver_index][route_index+1]
+            nxt_node_index = nxt_route[0]
+
+            node_address = data['node_addresses'][node_index]
+            nxt_node_address = data['node_addresses'][nxt_node_index]
+            
+            # TODO: Instead of sending request everytime, create distance matrix
+            additional_cost = get_distance(node_address, pickup_address)
+            additional_cost += get_distance(pickup_address, nxt_node_address)
+            additional_cost -= get_distance(node_address, nxt_node_address)
+            
+            if min_additional_cost > additional_cost:
+                min_additional_cost = additional_cost
+                min_cost_driver = driver_index
+                min_cost_route = route_index + 1
     
-    # Create Routing Model
-    routing = pywrapcp.RoutingModel(manager)
+    previous_route = driver_routes[min_cost_driver]
+    updated_route = previous_route[:]
 
-    # Create and register a transit callback.
-    def time_callback(from_index, to_index):
-        """Returns the travel time between the two nodes."""
-        # Convert from routing variable Index to time matrix NodeIndex.
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        return data['time_matrix'][from_node][to_node]
+    nxt_node = updated_route.pop(min_cost_route)
+    updated_nxt_node = (nxt_node[0], nxt_node[1], get_distance(nxt_node[0], pickup_address))
+    updated_route.insert(min_cost_route, (pickup_address, -demand, get_distance(node_address, pickup_address)))
+    updated_route.insert(min_cost_route+1, updated_nxt_node)
 
-    transit_callback_index = routing.RegisterTransitCallback(time_callback)
+    previous_ontime_deliveries = count_ontime_deliveries(previous_route)
+    new_ontime_deliveries = count_ontime_deliveries(updated_route)
+    difference = previous_ontime_deliveries - new_ontime_deliveries
 
-    # Define cost of each arc.
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-
-    # Add Capacity constraint.
-    def demand_callback(from_index):
-        """Returns the demand of the node."""
-        # Convert from routing variable Index to demands NodeIndex.
-        from_node = manager.IndexToNode(from_index)
-        return data['demands'][from_node]
-
-    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
-
-    # Have to change the capacity of the vehicle... have to set it as cumulative weight till that point
-    routing.AddDimensionWithVehicleCapacity(
-        demand_callback_index,
-        0,  # null capacity slack
-        data['vehicle_capacities'],  # vehicle maximum capacities
-        True,  # start cumul to zero
-        'Capacity')
-    
-    # Allow to drop nodes.
-    penalty = 1000
-    for node in range(1, len(data['time_matrix'])):
-        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
-
-    # Add Time Windows constraint.
-    # Have to change the time window of the vehicle... have to set it as cumulative time till that point
-    time = 'Time'
-    # routing.AddDimension(transit_callback_index,
-    #     30,  # allow waiting time
-    #     30,  # maximum time per vehicle
-    #     False,  # Don't force start cumul to zero.
-    #     time)
-    time_dimension = routing.GetDimensionOrDie(time)
-    
-    # Add time window constraints for each location except depot.
-    for location_idx, time_window in enumerate(data['time_windows']):
-        if location_idx == 0:
-            continue
-        index = manager.NodeToIndex(location_idx)
-        time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-
-    # Setting first solution heuristic.
-    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    
-    # search_parameters.time_limit.FromSeconds(30)
-
-    # Solve the problem.
-    assignment = routing.SolveWithParameters(search_parameters)
+    # TODO: Modify penalty logic
+    if difference>1:
+        # Dont add pickup node
+        return
+    else:
+        good = 5
+        bad = additional_cost + 3*difference
+        delta = good - bad
+        if delta >= 0:
+            driver_routes[min_cost_driver] = updated_route
+        else:
+            # Dont add pickup node
+            pass
+        return
 
     # Things to do:
     # 1. Add routes_time as initial time for the vehicle... vehicle should start from start node after this time
