@@ -184,7 +184,7 @@ def get_lati_long(query):
     return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 
-def build_time_distance_matrix(locations_list,build=False):
+def build_time_distance_matrix(locations_list,build):
     """
     Builds the distance matrix for the data_locations
     This will also take care of the api limit
@@ -195,14 +195,11 @@ def build_time_distance_matrix(locations_list,build=False):
         with open('distance_matrix.json','r') as f:
             data_store_distance_matrix = json.load(f)
 
-        # TODO: Remove these 2 lines
-        data_store_distance_matrix = data_store_distance_matrix[0]
-        data_store_time_matrix = data_store_time_matrix[0]
-
         data['time_matrix'] = data_store_time_matrix
         data['distance_matrix'] = data_store_distance_matrix
         return data_store_time_matrix, data_store_distance_matrix
 
+    print("Hi")
     base_url = "https://api.openrouteservice.org/v2/matrix/driving-car"
     time_matrix = []
     distance_matrix = []
@@ -228,14 +225,12 @@ def build_time_distance_matrix(locations_list,build=False):
         })
         data_res = response.json()
         print(data_res)
-        time_matrix.append(data_res['durations'])
-        distance_matrix.append(data_res['distances'])
-    
+        for j in range(len(data_res['durations'])):
+            time_matrix.append(data_res['durations'][j])
+            distance_matrix.append(data_res['distances'][j])
+
     data_store_time_matrix = time_matrix
     data_store_distance_matrix = distance_matrix
-
-    data_store_distance_matrix = data_store_distance_matrix[0]
-    data_store_time_matrix = data_store_time_matrix[0]
     
     data['distance_matrix'] = data_store_distance_matrix
     data['time_matrix'] = data_store_time_matrix
@@ -243,6 +238,7 @@ def build_time_distance_matrix(locations_list,build=False):
         json.dump(time_matrix,f)
     with open('distance_matrix.json','w') as f:
         json.dump(distance_matrix,f)
+    
     return time_matrix, distance_matrix
 
 # Test the build_distance_matrix function
@@ -435,7 +431,8 @@ def process_data(request):
     # TODO: Match the volume of sku and model them as demands
     # Sku number -> Volume, Weight -> Need a file for this
     # Need to add on frontend side
-    data['demands'] = [3000] * len(data_locations)
+    data['demands'] = [100] * len(data_locations)
+    data['demands'][0] = 0
 
     # Bag dimensions data
     # TODO: Bag dimensions data -> Vehicle capacities thing
@@ -443,23 +440,12 @@ def process_data(request):
         bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['num_vehicles'])
 
     if data_locations is not None:
+        print("Building the time-distance matrix")
         build_time_distance_matrix(locations_list=data_locations,build = False)
 
     # TODO: Need to set the depot location
     # setting data for depot
     data['depot'] = 0
-
-    # replace null values with 0
-    # Temporary solution
-    # for i in range(len(data['time_matrix'])):
-    #     for j in range(len(data['time_matrix'][i])):
-    #         if data['time_matrix'][i][j] is None:
-    #             data['time_matrix'][i][j] = 0
-    
-    # for i in range(len(data['distance_matrix'])):
-    #     for j in range(len(data['distance_matrix'][i])):
-    #         if data['distance_matrix'][i][j] is None:
-    #             data['distance_matrix'][i][j] = 0
 
     with open('data.json', 'w') as outfile:
         json.dump(data, outfile)
@@ -516,6 +502,8 @@ def get_solution(data, manager, routing, assignment, time_callback):
     # Just for checking purposes
     driver_routes = All_Routes
     date_driver_ropaths()
+    print(driver_routes)
+    print(all_driver_path)
     return All_Routes
 
 def cvrptw_with_dropped_locations():
@@ -536,6 +524,8 @@ def cvrptw_with_dropped_locations():
         # Convert from routing variable Index to time matrix NodeIndex.
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
+        if(data['time_matrix'][from_node][to_node] is None):
+            return 0
         return data['time_matrix'][from_node][to_node]
 
     transit_callback_index = routing.RegisterTransitCallback(time_callback)
@@ -559,17 +549,17 @@ def cvrptw_with_dropped_locations():
         'Capacity')
     
     # Allow to drop nodes.
-    penalty = 1000
-    for node in range(1, len(data['time_matrix'])):
-        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+    # penalty = 100000000
+    # for node in range(1, len(data['time_matrix'])):
+    #     routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
 
     # Add Time Windows constraint.
     time = 'Time'
-    # routing.AddDimension(transit_callback_index,
-    #     30,  # allow waiting time
-    #     30,  # maximum time per vehicle
-    #     False,  # Don't force start cumul to zero.
-    #     time)
+    routing.AddDimension(transit_callback_index,
+        30,  # allow waiting time
+        30,  # maximum time per vehicle
+        False,  # Don't force start cumul to zero.
+        time)
     time_dimension = routing.GetDimensionOrDie(time)
     
     # Add time window constraints for each location except depot.
@@ -585,7 +575,7 @@ def cvrptw_with_dropped_locations():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.FromSeconds(10)
+    search_parameters.time_limit.FromSeconds(60)
 
     # Solve the problem.
     assignment = routing.SolveWithParameters(search_parameters)
@@ -952,3 +942,27 @@ def get_volume(img_top,img_ver,ppm):
     h = cv2.boundingRect(cnt)[3]
 
     return l*b*h/(ppm*ppm*ppm)
+
+# with open("data.json", "r") as f:
+#     data = json.load(f)
+# print(len(data['time_windows']))
+# print(len(data['demands']))
+# with open("distance_matrix.json", "r") as f:
+#     data['distance_matrix'] = json.load(f)
+
+# distance_matrix = []
+# for i in range(len(data['distance_matrix'])):
+#     for j in range(len(data['distance_matrix'][i])):
+#         distance_matrix.append(data['distance_matrix'][i][j])
+# data['distance_matrix'] = distance_matrix
+
+# with open("time_matrix.json", "r") as f:
+#     data['time_matrix'] = json.load(f)
+
+# time_matrix = []
+# for i in range(len(data['time_matrix'])):
+#     for j in range(len(data['time_matrix'][i])):
+#         time_matrix.append(data['time_matrix'][i][j])
+# data['time_matrix'] = time_matrix
+
+# cvrptw_with_dropped_locations()
