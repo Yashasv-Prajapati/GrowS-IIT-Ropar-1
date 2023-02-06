@@ -6,15 +6,16 @@ import { Button, Container } from 'react-bootstrap';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer, DirectionsService } from '@react-google-maps/api';
 
 export default function Admin() {
-  const [routes,setRoutes] = useState([[[28,77],[28.5,77.5]],[[29.5,77.5],[29,77], [30,79], [40.5,79.5]]])
+  const [routes,setRoutes] = useState([[[28,77],[28.5,77.5]],[[29.5,77.5],[29,77]]])
   const [file, setFile] = useState(null);
   const [directionInfo, setDirectionInfo] = useState(new Array(routes.length).fill(null));
 
-  const isLoaded = false;
+  // const isLoaded = false;
 
-  // const {isLoaded} = useJsApiLoader({
-  //   googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY
-  // })
+
+  const {isLoaded} = useJsApiLoader({
+    googleMapsApiKey: "AIzaSyDAHiXvLdpAhTMfnWbQgL2cigqtsFkfuFQ"
+  })
 
   const [changedRoute, setChangedRoute] = useState("");
   const sendFile = async (e) => {
@@ -23,6 +24,7 @@ export default function Admin() {
     var payload = new FormData();
     payload.append("file", file);
     console.log("File:", file);
+
 
     axios.post("http://localhost:8000/dispatch_addresses", payload, {
       headers: {
@@ -57,7 +59,7 @@ export default function Admin() {
       timer = setTimeout(()=>{
         timer=null
         func.apply(context, args)
-      }, 500);
+      }, 1000);
     }
   }
 
@@ -76,11 +78,13 @@ export default function Admin() {
     });
 
     // changing old route to new route
-    routes[routeIndex] = Routes;
+    routes[routeIndex] = newPoints;
+    
+
     setRoutes(routes);
+    console.log(routes)
 
     return newPoints;
-
   }
 
   const optimizedChangeRoutes = useCallback(debounce(changeRoute), []);
@@ -88,7 +92,9 @@ export default function Admin() {
 
   useEffect(() => {
       // getRoutes()
-  }, [])
+      console.log("Current Routes are = ", routes);
+
+  }, [routes])
 
   return (
     <div>
@@ -97,7 +103,7 @@ export default function Admin() {
         isLoaded ? (
           <>
             <div>Google Map</div>
-            <GoogleMap center={{lat: 28, lng: 77}} zoom={10} mapContainerStyle={{width:'70vw',height:'70vh','margin-left':'auto','margin-right':'auto'}}>
+            <GoogleMap center={{lat: 28, lng: 77}} zoom={10} mapContainerStyle={{width:'70vw',height:'70vh','marginLeft':'auto','marginRight':'auto'}}>
               <Marker position={{lat: 28, lng: 77}} />
               {/* Write a code to plot a route on Google Maps */}
               { directionInfo.map((direction,index) => {
@@ -124,6 +130,7 @@ export default function Admin() {
                       travelMode: 'DRIVING',
                     }
                   }
+                  
                   callback={(res) => {
                     if (res !== null && directionInfo[index] === null) {
                        setDirectionInfo((prev) => {
@@ -141,7 +148,7 @@ export default function Admin() {
           <div>Loading...</div>
         )
       }
-      <MapContainerRoutes routes={routes}/>
+      {/* <MapContainerRoutes routes={routes}/> */}
       {/* Add a form to add a dynamic waypoint */}
       <AdminForm />
       <form className='flex flex-col justify-center items-center' onSubmit={addWayPoint}>
@@ -150,9 +157,13 @@ export default function Admin() {
           <input className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" name="waypoint" />
           <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Add Waypoint</button>
         </div>
+
       </form>
       {/* Display the current routes */}
       <Container className=''>
+
+
+
         <h3 className='text-3xl text-center my-4'>Current Routes</h3>
 
         <ul className='flex flex-col justify-between items-center py-4'>
@@ -164,7 +175,7 @@ export default function Admin() {
               <br/>
               <label>Change Route: (In the format of 2 1 4 3)</label>
               <input type="text" className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" onChange={(e)=>{optimizedChangeRoutes(e,route,routeIndex)}} name="route" />
-              <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Change</button>
+              <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" >Change</button>
             </li>
           ))}
         </ul>
