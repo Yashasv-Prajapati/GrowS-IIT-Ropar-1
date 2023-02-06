@@ -171,6 +171,35 @@ Global path history for all the drivers
 data_store_time_matrix = []
 completed_deliveries = 0
 
+# analytics dictionary
+analytics = []
+"""
+[
+    {
+        
+        maxTimeTaken:max_time_taken
+        minTimeTaken:min_time_taken
+        distaceTravelled:dis...
+        load:capacity   
+    },
+    {
+        maxTimeTaken:max_time_taken
+        minTimeTaken:min_time_taken
+        distaceTravelled:dis...
+        load:capacity   
+    },
+    {
+        maxTimeTaken:max_time_taken
+        minTimeTaken:min_time_taken
+        distaceTravelled:dis...
+        load:capacity    
+    }
+]
+"""
+
+
+
+
 def get_lati_long(query):
     # Using Google Maps API
     base_url = 'https://maps.googleapis.com/maps/api/geocode/json?'
@@ -490,7 +519,7 @@ def create_data_model():
     data['depot'] = 0
     return data
 
-def get_solution(data, manager, routing, assignment, time_callback):
+def get_solution(data, manager, routing, assignment, time_callback, distance_callback):
     All_Routes = []
 
     """Prints assignment on console."""
@@ -503,16 +532,46 @@ def get_solution(data, manager, routing, assignment, time_callback):
         if assignment.Value(routing.NextVar(node)) == node:
             dropped_nodes += ' {}'.format(manager.IndexToNode(node))
     print(dropped_nodes)
+
     # Display routes
-    total_distance = 0
-    total_load = 0
+    time_dimension = routing.GetDimensionOrDie('Time')
+    distance_dimension = routing.GetDimensionOrDie('Distance')
+    capacity_dimension = routing.GetDimensionOrDie('Capacity')
+
+    # redundant
+    # total_time = 0
+    # total_distance = 0
+    # total_load=0
+
+
+    # check if the analytics array is empty of not
+    if(len(analytics) !=0):
+        analytics = []
+
+
     for vehicle_id in range(data['num_vehicles']):
         index = routing.Start(vehicle_id)
         route_load = 0
 
         routes = []
+        dict_analytics = {}
 
         while not routing.IsEnd(index):
+
+            time_var = time_dimension.CumulVar(index)
+            distance_var = distance_dimension.CumulVar(index)
+            capacity_var = capacity_dimension.CumulVar(index)
+            
+            minimumTimeTaken = assignment.Min(time_var)
+            maximumTimeTaken = assignment.Max(time_var)
+            distanceTraveled = assignment.Value(distance_var)
+            load = assignment.Value(capacity_var)
+
+            dict_analytics['minimumTimeTaken'] = minimumTimeTaken
+            dict_analytics['maximumTimeTaken'] = maximumTimeTaken
+            dict_analytics['distanceTraveled'] = distanceTraveled
+            dict_analytics['load'] = load
+
 
             node_index = manager.IndexToNode(index)
             time_taken = time_callback(index, index+1)
@@ -523,9 +582,41 @@ def get_solution(data, manager, routing, assignment, time_callback):
             route.append(route_load)
             route.append(time_taken)
             routes.append(route)
+        
+            # adding analytics dict to anaylytics array
+            analytics.append(dict_analytics);
 
             index = assignment.Value(routing.NextVar(index))
+
+        # last point analytics calculation
+        time_var = time_dimension.CumulVar(index)
+        distance_var = distance_dimension.CumulVar(index)
+        capacity_var = capacity_dimension.CumulVar(index)
         
+        # Adding last point analytics
+        minimumTimeTaken = assignment.Min(time_var)
+        maximumTimeTaken = assignment.Max(time_var)
+        distanceTraveled = assignment.Value(distance_var)
+        load = assignment.Value(capacity_var)
+
+        dict_analytics['minimumTimeTaken'] = minimumTimeTaken
+        dict_analytics['maximumTimeTaken'] = maximumTimeTaken
+        dict_analytics['distanceTraveled'] = distanceTraveled
+        dict_analytics['load'] = load
+
+        analytics.append(dict_analytics)
+
+        # dumping all info to a json file
+        with open('analytics.json', 'w') as outfile:
+            json.dump(analytics, outfile)
+
+
+        # Adding total_distance, total_time and total_load at the end of each analytic
+        # redundant code
+        # total_time += assignment.Min(time_var)
+        # total_distance += assignment.Value(distance_var)
+        # total_load += assignment.Value(capacity_var)
+
         All_Routes.append(routes)
     
     # Just for checking purposes
@@ -556,6 +647,32 @@ def cvrptw_with_dropped_locations():
 
     # Define cost of each arc.
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+    # Create and register a transit callback.
+    def distance_callback(from_index, to_index):
+        """Returns the distance between the two nodes."""
+        # Convert from routing variable Index to distance matrix NodeIndex.
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['distance_matrix'][from_node][to_node]
+
+    distance_callback_index = routing.RegisterTransitCallback(distance_callback)
+
+    # Define cost of each arc.
+    # routing.SetArcCostEvaluatorOfAllVehicles(distance_callback_index)
+
+    # Add Distance constraint.
+    dimension_name = 'Distance'
+    routing.AddDimension(
+        distance_callback_index,
+        0,  # no slack
+        10_000,  # vehicle maximum travel distance
+        True,  # start cumul to zero
+        dimension_name)
+    distance_dimension = routing.GetDimensionOrDie(dimension_name)
+    distance_dimension.SetGlobalSpanCostCoefficient(100)
+
+
 
     # Add Capacity constraint.
     def demand_callback(from_index):
@@ -622,8 +739,6 @@ def get_waypoint_to_coord(request):
     response['lat'] = lat
     response['lon'] = lon
     return JsonResponse(response)
-
-
 
 def find_kth_delivery_item(k):
     # This function finds information of the kth delivery item being delivered

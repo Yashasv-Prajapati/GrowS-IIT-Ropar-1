@@ -9,7 +9,14 @@ export default function Driver() {
     const [route,setRoute] = useState([])
 
     const getRoute = async () => {
-        const rte = await fetch('http://localhost:8000/driver_route')
+        
+        const rte = await fetch('http://localhost:8000/driver_route', {
+            method:'get',
+            headers:{
+                'Content-Type':'application/json'
+            }
+        })
+
         const data = await rte.json()
         console.log(data)
         setRoute(data.route)
