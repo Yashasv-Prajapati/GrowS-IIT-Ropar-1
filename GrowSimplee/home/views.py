@@ -184,11 +184,25 @@ def get_lati_long(query):
     return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 
-def build_time_distance_matrix(locations_list):
+def build_time_distance_matrix(locations_list,build=False):
     """
     Builds the distance matrix for the data_locations
     This will also take care of the api limit
     """
+    if build is False:
+        with open('time_matrix.json','r') as f:
+            data_store_time_matrix = json.load(f)
+        with open('distance_matrix.json','r') as f:
+            data_store_distance_matrix = json.load(f)
+
+        # TODO: Remove these 2 lines
+        data_store_distance_matrix = data_store_distance_matrix[0]
+        data_store_time_matrix = data_store_time_matrix[0]
+
+        data['time_matrix'] = data_store_time_matrix
+        data['distance_matrix'] = data_store_distance_matrix
+        return data_store_time_matrix, data_store_distance_matrix
+
     base_url = "https://api.openrouteservice.org/v2/matrix/driving-car"
     time_matrix = []
     distance_matrix = []
@@ -219,11 +233,14 @@ def build_time_distance_matrix(locations_list):
     
     data_store_time_matrix = time_matrix
     data_store_distance_matrix = distance_matrix
-    data['distance_matrix'] = distance_matrix
-    data['time_matrix'] = time_matrix
+
+    data_store_distance_matrix = data_store_distance_matrix[0]
+    data_store_time_matrix = data_store_time_matrix[0]
+    
+    data['distance_matrix'] = data_store_distance_matrix
+    data['time_matrix'] = data_store_time_matrix
     with open('time_matrix.json','w') as f:
         json.dump(time_matrix,f)
-
     with open('distance_matrix.json','w') as f:
         json.dump(distance_matrix,f)
     return time_matrix, distance_matrix
@@ -265,7 +282,7 @@ def bag_creation_strategy(bag_num_1,bag_num_2,num_vehicles):
     for i in range(num_vehicles):
         vehicle_demands[i] = vehicles_bag_list[i][2]
 
-    data['vehicle_demands'] = vehicle_demands
+    data['vehicle_capacities'] = vehicle_demands
     return vehicles_bag_list
 
 def index(request):
@@ -348,8 +365,8 @@ def admin_routes(request):
     response['status'] = 'OK'
     response['message'] = 'This is the admin routes page'
     # For now, hard coded the routes
-    if driver_routes == []:
-        cvrptw_with_dropped_locations()
+    # if driver_routes == []:
+    #     cvrptw_with_dropped_locations()
     response['routes'] = driver_routes
     return JsonResponse(response)
 
@@ -376,7 +393,6 @@ def process_data(request):
             # check if the address is already present in the data_locations
             if dispatchAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
                 continue
-            print("hi")
             data_locations_dict = {}
             data_locations_dict['address']= dispatchAdd_sheet['address'][row]
             data_locations_dict['type']='drop'
@@ -395,7 +411,6 @@ def process_data(request):
             # check if the address is already present in the data_locations
             if pickupAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
                 continue
-            print("hi")
             data_locations_dict = {}
             data_locations_dict['address']= pickupAdd_sheet['address'][row]
             data_locations_dict['type']='pickup'
@@ -408,92 +423,57 @@ def process_data(request):
     with open('data_locations.json', 'w') as outfile:
         json.dump(data_locations, outfile)
 
-    # setting data for vehicle capacity, not really needed, to be looked at later
-    # print(request.POST['CapacityArr'])
-    # data['vehicle_capacity'] = request.POST['CapacityArr']
-
     # setting data for number of vehicles
     if 'vehicleNum' in request.POST:
-        data['number_of_vehicles'] = int(request.POST['vehicleNum'])
+        data['num_vehicles'] = int(request.POST['vehicleNum'])
 
     # setting data for time window
     # TODO: Need to set time window for each location
+    data['time_windows'] = [[0, 43200]] * len(data_locations)
 
     # setting data for demands
     # TODO: Match the volume of sku and model them as demands
     # Sku number -> Volume, Weight -> Need a file for this
     # Need to add on frontend side
+    data['demands'] = [3000] * len(data_locations)
 
     # Bag dimensions data
     # TODO: Bag dimensions data -> Vehicle capacities thing
-    if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'number_of_vehicles' in data:
-        bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['number_of_vehicles'])
-
-    # Initial solution called
-    # cvrptw_with_dropped_locations()
-
-    # For each pickup location, add_pickup_location is called
-    # for row in range(pickupAdd_sheet.shape[0]):
-    #     add_pickup_location(pickupAdd_sheet['address'][row])
+    if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'num_vehicles' in data:
+        bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['num_vehicles'])
 
     if data_locations is not None:
-        # build_time_matrix(locations_list=data_locations)
-        build_time_distance_matrix(locations_list=data_locations)
+        build_time_distance_matrix(locations_list=data_locations,build = False)
+
+    # TODO: Need to set the depot location
+    # setting data for depot
+    data['depot'] = 0
+
+    # replace null values with 0
+    # Temporary solution
+    # for i in range(len(data['time_matrix'])):
+    #     for j in range(len(data['time_matrix'][i])):
+    #         if data['time_matrix'][i][j] is None:
+    #             data['time_matrix'][i][j] = 0
+    
+    # for i in range(len(data['distance_matrix'])):
+    #     for j in range(len(data['distance_matrix'][i])):
+    #         if data['distance_matrix'][i][j] is None:
+    #             data['distance_matrix'][i][j] = 0
 
     with open('data.json', 'w') as outfile:
         json.dump(data, outfile)
 
+    print("Done Data Processing")
+    # Initial solution called
+    cvrptw_with_dropped_locations()
+
+    print("Completed building the solution")
+    # For each pickup location, add_pickup_location is called
+    # for row in range(pickupAdd_sheet.shape[0]):
+    #     add_pickup_location(pickupAdd_sheet['address'][row])
+
     return JsonResponse(response)
-
-def create_data_model():
-    """Stores the data for the problem."""
-
-    # In this we need to create time matrix using the DISTANCE API
-    # Time window, vehicle capacity, demands, num_vehicles will be provided in the data
-    data['time_matrix'] = [
-                [0, 6, 9, 8, 7, 3, 6, 2, 3, 2, 6, 6, 4, 4, 5, 9, 7],
-                [6, 0, 8, 3, 2, 6, 8, 4, 8, 8, 13, 7, 5, 8, 12, 10, 14],
-                [9, 8, 0, 11, 10, 6, 3, 9, 5, 8, 4, 15, 14, 13, 9, 18, 9],
-                [8, 3, 11, 0, 1, 7, 10, 6, 10, 10, 14, 6, 7, 9, 14, 6, 16],
-                [7, 2, 10, 1, 0, 6, 9, 4, 8, 9, 13, 4, 6, 8, 12, 8, 14],
-                [3, 6, 6, 7, 6, 0, 2, 3, 2, 2, 7, 9, 7, 7, 6, 12, 8],
-                [6, 8, 3, 10, 9, 2, 0, 6, 2, 5, 4, 12, 10, 10, 6, 15, 5],
-                [2, 4, 9, 6, 4, 3, 6, 0, 4, 4, 8, 5, 4, 3, 7, 8, 10],
-                [3, 8, 5, 10, 8, 2, 2, 4, 0, 3, 4, 9, 8, 7, 3, 13, 6],
-                [2, 8, 8, 10, 9, 2, 5, 4, 3, 0, 4, 6, 5, 4, 3, 9, 5],
-                [6, 13, 4, 14, 13, 7, 4, 8, 4, 4, 0, 10, 9, 8, 4, 13, 4],
-                [6, 7, 15, 6, 4, 9, 12, 5, 9, 6, 10, 0, 1, 3, 7, 3, 10],
-                [4, 5, 14, 7, 6, 7, 10, 4, 8, 5, 9, 1, 0, 2, 6, 4, 8],
-                [4, 8, 13, 9, 8, 7, 10, 3, 7, 4, 8, 3, 2, 0, 4, 5, 6],
-                [5, 12, 9, 14, 12, 6, 6, 7, 3, 3, 4, 7, 6, 4, 0, 9, 2],
-                [9, 10, 18, 6, 8, 12, 15, 8, 13, 9, 13, 3, 4, 5, 9, 0, 9],
-                [7, 14, 9, 16, 14, 8, 5, 10, 6, 5, 4, 10, 8, 6, 2, 9, 0],
-            ]
-    # According to our problem, the first parameter will be zero only
-    data['time_windows'] = [
-                (0, 60),  # depot
-                (0, 30),  # 1
-                (0, 40),  # 2
-                (0, 50),  # 3
-                (0, 30),  # 4
-                (0, 40),  # 5
-                (0, 60),  # 6
-                (0, 50),  # 7
-                (0, 50),  # 8
-                (0, 30),  # 9
-                (0, 40),  # 10
-                (0, 15),  # 11
-                (0, 5),  # 12
-                (0, 10),  # 13
-                (0, 8),  # 14
-                (0, 15),  # 15
-                (0, 15),  # 16
-              ]
-    data['demands'] = [0, 1, 1, 2, 4, 2, 4, 8, 3, 1, 2, 1, 2, 4, 4, 5, 5]
-    data['vehicle_capacities'] = [15, 15]
-    data['num_vehicles'] = 2
-    data['depot'] = 0
-    return data
 
 def get_solution(data, manager, routing, assignment, time_callback):
     All_Routes = []
@@ -535,13 +515,14 @@ def get_solution(data, manager, routing, assignment, time_callback):
     
     # Just for checking purposes
     driver_routes = All_Routes
+    date_driver_ropaths()
     return All_Routes
 
 def cvrptw_with_dropped_locations():
     # This function will be used to calculate the routes with dropped locations
     
     # Instantiate the data problem
-    data = create_data_model()
+    # data = create_data_model()
 
     # Create the routing index manager
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])

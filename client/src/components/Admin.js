@@ -16,20 +16,6 @@ export default function Admin() {
   //   googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY
   // })
 
-  const sendFile = async (e) => {
-    e.preventDefault();
-    
-    var payload = new FormData();
-    payload.append("file", file);
-    console.log("File:", file);
-
-    axios.post("http://localhost:8000/dispatch_addresses", payload, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      }  
-    });
-  }
-
   const getRoutes = async () => {
       const rte = await fetch('http://localhost:8000/admin_routes')
       const data = await rte.json()
