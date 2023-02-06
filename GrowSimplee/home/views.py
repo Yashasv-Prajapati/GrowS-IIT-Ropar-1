@@ -10,6 +10,9 @@ import urllib.parse
 from dotenv import load_dotenv
 import os
 import json
+import cv2
+import numpy as np
+from multimethod import multimethod
 
 load_dotenv()
 API_KEY = os.getenv('API_KEY')
@@ -169,6 +172,7 @@ Global path history for all the drivers
 """
 
 data_store_time_matrix = []
+data_store_distance_matrix = []
 completed_deliveries = 0
 
 # analytics dictionary
@@ -209,13 +213,28 @@ def get_lati_long(query):
     return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 
-def build_time_matrix(locations_list):
+def build_time_distance_matrix(locations_list,build=False):
     """
     Builds the distance matrix for the data_locations
     This will also take care of the api limit
     """
+    if build is False:
+        with open('time_matrix.json','r') as f:
+            data_store_time_matrix = json.load(f)
+        with open('distance_matrix.json','r') as f:
+            data_store_distance_matrix = json.load(f)
+
+        # TODO: Remove these 2 lines
+        data_store_distance_matrix = data_store_distance_matrix[0]
+        data_store_time_matrix = data_store_time_matrix[0]
+
+        data['time_matrix'] = data_store_time_matrix
+        data['distance_matrix'] = data_store_distance_matrix
+        return data_store_time_matrix, data_store_distance_matrix
+
     base_url = "https://api.openrouteservice.org/v2/matrix/driving-car"
     time_matrix = []
+    distance_matrix = []
 
     query_point = 2500//len(locations_list)
 
@@ -229,7 +248,7 @@ def build_time_matrix(locations_list):
     for i in range(0,len(locations_list),query_point):
         response = requests.post(base_url,json={
             "locations": locations_lat_long,
-            "metrics": ["duration"],
+            "metrics": ["duration","distance"],
             "units": "m",
             "sources": [j for j in range(i,min(i+query_point,len(locations_list)))],
         },
@@ -239,15 +258,24 @@ def build_time_matrix(locations_list):
         data_res = response.json()
         print(data_res)
         time_matrix.append(data_res['durations'])
+        distance_matrix.append(data_res['distances'])
     
     data_store_time_matrix = time_matrix
-    data['time_matrix'] = time_matrix
+    data_store_distance_matrix = distance_matrix
+
+    data_store_distance_matrix = data_store_distance_matrix[0]
+    data_store_time_matrix = data_store_time_matrix[0]
+    
+    data['distance_matrix'] = data_store_distance_matrix
+    data['time_matrix'] = data_store_time_matrix
     with open('time_matrix.json','w') as f:
         json.dump(time_matrix,f)
-    return time_matrix
+    with open('distance_matrix.json','w') as f:
+        json.dump(distance_matrix,f)
+    return time_matrix, distance_matrix
 
-# Test the build_time_matrix function
-# build_time_matrix([{'lat':9.70093,'lon':48.477473},{'lat':9.207916,'lon':49.153868},{'lat':37.573242,'lon':55.801281},{'lat':115.663757,'lon':38.106467}])
+# Test the build_distance_matrix function
+# build_time_distance_matrix([{'lon':9.70093,'lat':48.477473},{'lon':9.207916,'lat':49.153868},{'lon':37.573242,'lat':55.801281},{'lon':115.663757,'lat':38.106467}])
 
 def bag_creation_strategy(bag_num_1,bag_num_2,num_vehicles):
     """
@@ -283,7 +311,7 @@ def bag_creation_strategy(bag_num_1,bag_num_2,num_vehicles):
     for i in range(num_vehicles):
         vehicle_demands[i] = vehicles_bag_list[i][2]
 
-    data['vehicle_demands'] = vehicle_demands
+    data['vehicle_capacities'] = vehicle_demands
     return vehicles_bag_list
 
 def index(request):
@@ -366,8 +394,8 @@ def admin_routes(request):
     response['status'] = 'OK'
     response['message'] = 'This is the admin routes page'
     # For now, hard coded the routes
-    if driver_routes == []:
-        cvrptw_with_dropped_locations()
+    # if driver_routes == []:
+    #     cvrptw_with_dropped_locations()
     response['routes'] = driver_routes
     return JsonResponse(response)
 
@@ -394,7 +422,6 @@ def process_data(request):
             # check if the address is already present in the data_locations
             if dispatchAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
                 continue
-            print("hi")
             data_locations_dict = {}
             data_locations_dict['address']= dispatchAdd_sheet['address'][row]
             data_locations_dict['type']='drop'
@@ -413,7 +440,6 @@ def process_data(request):
             # check if the address is already present in the data_locations
             if pickupAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
                 continue
-            print("hi")
             data_locations_dict = {}
             data_locations_dict['address']= pickupAdd_sheet['address'][row]
             data_locations_dict['type']='pickup'
@@ -426,47 +452,57 @@ def process_data(request):
     with open('data_locations.json', 'w') as outfile:
         json.dump(data_locations, outfile)
 
-    # setting data for vehicle capacity, not really needed, to be looked at later
-    # print(request.POST['CapacityArr'])
-    # data['vehicle_capacity'] = request.POST['CapacityArr']
-
     # setting data for number of vehicles
     if 'vehicleNum' in request.POST:
-        data['number_of_vehicles'] = int(request.POST['vehicleNum'])
+        data['num_vehicles'] = int(request.POST['vehicleNum'])
 
     # setting data for time window
     # TODO: Need to set time window for each location
+    data['time_windows'] = [[0, 43200]] * len(data_locations)
 
     # setting data for demands
     # TODO: Match the volume of sku and model them as demands
     # Sku number -> Volume, Weight -> Need a file for this
     # Need to add on frontend side
+    data['demands'] = [3000] * len(data_locations)
 
     # Bag dimensions data
     # TODO: Bag dimensions data -> Vehicle capacities thing
-    if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'number_of_vehicles' in data:
-        bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['number_of_vehicles'])
-    
-    # data locations -> Lat, Long 
-    # Either the company will provide lat, long or we will have to use some free api
-    # For now, waypoint_to_coord is used to get lat, long
-
-    # Initial solution called
-    # cvrptw_with_dropped_locations()
-
-    # For each pickup location, add_pickup_location is called
-    # for row in range(pickupAdd_sheet.shape[0]):
-    #     add_pickup_location(pickupAdd_sheet['address'][row])
+    if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'num_vehicles' in data:
+        bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['num_vehicles'])
 
     if data_locations is not None:
-        build_time_matrix(locations_list=data_locations)
+        build_time_distance_matrix(locations_list=data_locations,build = False)
+
+    # TODO: Need to set the depot location
+    # setting data for depot
+    data['depot'] = 0
+
+    # replace null values with 0
+    # Temporary solution
+    # for i in range(len(data['time_matrix'])):
+    #     for j in range(len(data['time_matrix'][i])):
+    #         if data['time_matrix'][i][j] is None:
+    #             data['time_matrix'][i][j] = 0
+    
+    # for i in range(len(data['distance_matrix'])):
+    #     for j in range(len(data['distance_matrix'][i])):
+    #         if data['distance_matrix'][i][j] is None:
+    #             data['distance_matrix'][i][j] = 0
 
     with open('data.json', 'w') as outfile:
         json.dump(data, outfile)
 
+    print("Done Data Processing")
+    # Initial solution called
+    cvrptw_with_dropped_locations()
+
+    print("Completed building the solution")
+    # For each pickup location, add_pickup_location is called
+    # for row in range(pickupAdd_sheet.shape[0]):
+    #     add_pickup_location(pickupAdd_sheet['address'][row])
+
     return JsonResponse(response)
-
-
 
 
 def create_data_model():
@@ -621,13 +657,14 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
     
     # Just for checking purposes
     driver_routes = All_Routes
+    date_driver_ropaths()
     return All_Routes
 
 def cvrptw_with_dropped_locations():
     # This function will be used to calculate the routes with dropped locations
     
     # Instantiate the data problem
-    data = create_data_model()
+    # data = create_data_model()
 
     # Create the routing index manager
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
@@ -795,9 +832,12 @@ def update_driver_routes(k):
 
     # Creating updated driver_routes list
     updated_driver_routes = [[] for _ in range(len(driver_routes))]
+    driver_start_time = [-1]*len(driver_routes)
     for i in range(k, len(all_items)):
         driver_index = all_items[i][1]
         updated_driver_routes[driver_index].append(all_items[i][2:])
+        if driver_start_time[driver_index]==-1:
+            driver_start_time[driver_index] = time
     
     # Updating the driver_routes list
     driver_routes = updated_driver_routes
@@ -816,25 +856,33 @@ def date_driver_ropaths():
             ])
     
 
-def add_pickup_point(address,demand,k):
-    '''
-    This function adds a pickup point to the driver_routes list and gives the updated routes
-    k - After which kth delivery the pickup point is to be added
-    '''
+def get_time_taken(k):
+    # This function returns the time taken to complete k deliveries
 
-    additional_deliveries = k - completed_deliveries
-    completed_deliveries = k
-
-    delivery_item = find_kth_delivery_item(additional_deliveries)
-    # delivery_item = [driver_index, node_index, route_load, total_time]
-    # Will have to use this last time to create waiting times to solve the in-between nodes problem
-    last_time = delivery_item[3]
-
-    # Routes_time: Time taken to reach the next node... have to add waiting time to this
-    # Routes_load: Load of the route at the next node (This has to be checked)
-    routes_time = []
-    routes_load = []
+    # Creating a list of tuple of all items being delivered and then finally we will sort it to find kth item
+    # The tuple will be of the format (total_time, driver_index, node_index, route_load, time_taken)
+    all_items = []
+    driver_index = 0
     for routes in driver_routes:
+        time = 0
+        for route in routes:
+            node_index = route[0]
+            route_load = route[1]
+            time_taken = route[2]
+            time += time_taken
+            all_items.append((time, driver_index, node_index, route_load, time_taken))
+        driver_index += 1
+
+    # Sorting the list of tuples
+    all_items.sort(key = lambda x: x[0])
+
+    if k>len(all_items):
+        return float('inf')
+    else:
+        return all_items[k-1][0]
+
+# ============================== MERGE CONFLICT ================================
+'''
         routes_time.append(routes[0][2]-last_time)
         routes_load.append(routes[0][1])
 
@@ -872,73 +920,120 @@ def add_pickup_point(address,demand,k):
 
     # Create the routing index manager
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
+
+'''
+# =========================================================
+
+#TODO
+def get_distance(address1, address2):
+    # check if address1 and address2 are in the data_locations list or not, if they are, find their index and return the distance and time
+    # if they are not, then find the distance and time using google maps api and return it
+    node_index1 = -1
+    node_index2 = -1
+    option = 1
+    address_list = [data_locations_dict['address'] for data_locations_dict in data_locations]
+    if address1 in address_list:
+        node_index1 = address_list.index(address1)
+    if address2 in address_list:
+        node_index2 = address_list.index(address2)
+    if node_index1!=-1 and node_index2!=-1 and option == 1:
+        return (data_store_distance_matrix[0][node_index1][node_index2], data_store_time_matrix[0][node_index1][node_index2])
+    else:
+        url = "https://maps.googleapis.com/maps/api/distancematrix/json?origins="+address1+"&destinations="+address2+"&key=AIzaSyDAHiXvLdpAhTMfnWbQgL2cigqtsFkfuFQ"
+        response = requests.request("GET", url)
+        data = response.json()
+        distance = data['rows'][0]['elements'][0]['distance']['text']
+        duration = data['rows'][0]['elements'][0]['duration']['text']
+        return (distance, duration)
+
+# with open('data.json') as f:
+#     data = json.load(f)
+# with open('data_locations.json') as f:
+#     data_locations = json.load(f)
+# with open('time_matrix.json') as f:
+#     data_store_time_matrix = json.load(f)
+# with open('distance_matrix.json') as f:
+#     data_store_distance_matrix = json.load(f)
+# address1 = "6, Shakambari Nagar, 1st stage, JP Nagar, Bangalore"
+# address2 = "1, 24th Main Rd, 1st Phase, Girinagar, KR Layout, Muneshwara T-Block, JP Nagar, Bangalore"
+# print(get_distance(address1, address2))
+
+def count_ontime_deliveries(route):
+    ontime_deliveries = 0
+    total_time = 0
+    for node, load, time_taken in route:
+        total_time += time_taken
+        expected_time = data['time_windows'][node][1]
+        if total_time <= expected_time:
+            ontime_deliveries+=1
+    return ontime_deliveries
+
+
+def add_pickup_point(pickup_address, demand, k):
+    time_taken = get_time_taken(k)
+
+    # Finding the free capacity in vehicles after k deliveries
+    max_capacity = data['vehicle_capacities']
+
+    min_additional_cost = float('inf')
+    min_cost_driver = -1
+    min_cost_route = -1
+
+    for driver_index in range (len(driver_routes)):
+        free_capacity = 0
+        current_time = 0
+        for route_index in range (len(driver_routes[driver_index])-1):
+            free_capacity += driver_routes[driver_index][route_index][1]
+            current_time += driver_routes[driver_index][route_index][2]
+            
+            if free_capacity < demand or current_time < time_taken:
+                continue
+
+            route = driver_routes[driver_index][route_index]
+            node_index = route[0]
+
+            nxt_route = driver_routes[driver_index][route_index+1]
+            nxt_node_index = nxt_route[0]
+
+            node_address = data['node_addresses'][node_index]
+            nxt_node_address = data['node_addresses'][nxt_node_index]
+            
+            # TODO: Instead of sending request everytime, create distance matrix
+            additional_cost = get_distance(node_address, pickup_address)
+            additional_cost += get_distance(pickup_address, nxt_node_address)
+            additional_cost -= get_distance(node_address, nxt_node_address)
+            
+            if min_additional_cost > additional_cost:
+                min_additional_cost = additional_cost
+                min_cost_driver = driver_index
+                min_cost_route = route_index + 1
     
-    # Create Routing Model
-    routing = pywrapcp.RoutingModel(manager)
+    previous_route = driver_routes[min_cost_driver]
+    updated_route = previous_route[:]
 
-    # Create and register a transit callback.
-    def time_callback(from_index, to_index):
-        """Returns the travel time between the two nodes."""
-        # Convert from routing variable Index to time matrix NodeIndex.
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        return data['time_matrix'][from_node][to_node]
+    nxt_node = updated_route.pop(min_cost_route)
+    updated_nxt_node = (nxt_node[0], nxt_node[1], get_distance(nxt_node[0], pickup_address))
+    updated_route.insert(min_cost_route, (pickup_address, -demand, get_distance(node_address, pickup_address)))
+    updated_route.insert(min_cost_route+1, updated_nxt_node)
 
-    transit_callback_index = routing.RegisterTransitCallback(time_callback)
+    previous_ontime_deliveries = count_ontime_deliveries(previous_route)
+    new_ontime_deliveries = count_ontime_deliveries(updated_route)
+    difference = previous_ontime_deliveries - new_ontime_deliveries
 
-    # Define cost of each arc.
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-
-    # Add Capacity constraint.
-    def demand_callback(from_index):
-        """Returns the demand of the node."""
-        # Convert from routing variable Index to demands NodeIndex.
-        from_node = manager.IndexToNode(from_index)
-        return data['demands'][from_node]
-
-    demand_callback_index = routing.RegisterUnaryTransitCallback(demand_callback)
-
-    # Have to change the capacity of the vehicle... have to set it as cumulative weight till that point
-    routing.AddDimensionWithVehicleCapacity(
-        demand_callback_index,
-        0,  # null capacity slack
-        data['vehicle_capacities'],  # vehicle maximum capacities
-        True,  # start cumul to zero
-        'Capacity')
-    
-    # Allow to drop nodes.
-    penalty = 1000
-    for node in range(1, len(data['time_matrix'])):
-        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
-
-    # Add Time Windows constraint.
-    # Have to change the time window of the vehicle... have to set it as cumulative time till that point
-    time = 'Time'
-    # routing.AddDimension(transit_callback_index,
-    #     30,  # allow waiting time
-    #     30,  # maximum time per vehicle
-    #     False,  # Don't force start cumul to zero.
-    #     time)
-    time_dimension = routing.GetDimensionOrDie(time)
-    
-    # Add time window constraints for each location except depot.
-    for location_idx, time_window in enumerate(data['time_windows']):
-        if location_idx == 0:
-            continue
-        index = manager.NodeToIndex(location_idx)
-        time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
-
-    # Setting first solution heuristic.
-    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
-    search_parameters.first_solution_strategy = (
-        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
-    search_parameters.local_search_metaheuristic = (
-        routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    
-    # search_parameters.time_limit.FromSeconds(30)
-
-    # Solve the problem.
-    assignment = routing.SolveWithParameters(search_parameters)
+    # TODO: Modify penalty logic
+    if difference>1:
+        # Dont add pickup node
+        return
+    else:
+        good = 5
+        bad = additional_cost + 3*difference
+        delta = good - bad
+        if delta >= 0:
+            driver_routes[min_cost_driver] = updated_route
+        else:
+            # Dont add pickup node
+            pass
+        return
 
     # Things to do:
     # 1. Add routes_time as initial time for the vehicle... vehicle should start from start node after this time
@@ -951,7 +1046,75 @@ def add_pickup_point(address,demand,k):
 # 1. Manual editing of routes (Within routes and global
 # 2. Styling of the pages (Finish touch)
 
-with open('data_locations.json', 'r') as f:
-    data_locations = json.load(f)
+# This function gives the volume of the box using Depth Sensor 
+# Here img is the colored image with green background, h is the height using depth sensor 
+@multimethod
+def get_volume(img,h:int,ppm):
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    a_channel = lab[:,:,1]
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    th = 255-th
+    # cv2.imshow("plis",th)
+    cv2.imwrite("output.jpeg",th)
+    img = cv2.imread("output.jpeg")
+    img1 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img1= cv2.GaussianBlur(img1,(5,5),0)
+    ret,thresh = cv2.threshold(img1,100,255,0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    rect = cv2.minAreaRect(cnt)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
 
-print(len(data_locations))
+    # draw minimum area rectangle (rotated rectangle)
+    # img = cv2.drawContours(img,[box],0,(0,255,255),2)
+    # cv2.imshow("Bounding Rectangles", img)
+    l=np.linalg.norm(box[0]-box[1])
+    b=np.linalg.norm(box[1]-box[2])
+
+    return l*b*h/(ppm*ppm*ppm)
+
+# This function gives us the volume if we have two photos shot from perpendicular field of view
+@multimethod
+def get_volume(img_top,img_ver,ppm):
+    img = img_top
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    a_channel = lab[:,:,1]
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    masked = cv2.bitwise_and(img, img, mask = th)
+    th = 255-th
+    # cv2.imshow("plis",th)
+    cv2.imwrite("output.jpeg",th)
+    img = cv2.imread("output.jpeg")
+    img1 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img1= cv2.GaussianBlur(img1,(5,5),0)
+    ret,thresh = cv2.threshold(img1,100,255,0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    rect = cv2.minAreaRect(cnt)
+    box = cv2.boxPoints(rect)
+    box = np.int0(box)
+
+    # draw minimum area rectangle (rotated rectangle)
+    # img = cv2.drawContours(img,[box],0,(0,255,255),2)
+    # cv2.imshow("Bounding Rectangles", img)
+    l=np.linalg.norm(box[0]-box[1])
+    b=np.linalg.norm(box[1]-box[2])
+
+
+    img=img_ver
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    a_channel = lab[:,:,1]
+    th = cv2.threshold(a_channel,127,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)[1]
+    th = 255-th
+    # cv2.imshow("plis",th)
+    cv2.imwrite("output.jpeg",th)
+    img = cv2.imread("output.jpeg")
+    img1 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img1= cv2.GaussianBlur(img1,(5,5),2)
+    ret,thresh = cv2.threshold(img1,100,255,0)
+    contours,_ = cv2.findContours(thresh, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    h = cv2.boundingRect(cnt)[3]
+
+    return l*b*h/(ppm*ppm*ppm)
