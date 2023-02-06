@@ -412,6 +412,9 @@ def process_data(request):
     with open('data_locations.json', 'r') as f:
         data_locations = json.load(f)
 
+    # print(request.FILES['dispatchAdd'])
+    # print(request.FILES)
+
     # checking dispatchAdd
     if 'dispatchAdd' in request.FILES:
         dispatchAdd = request.FILES['dispatchAdd']
@@ -480,15 +483,15 @@ def process_data(request):
 
     # replace null values with 0
     # Temporary solution
-    # for i in range(len(data['time_matrix'])):
-    #     for j in range(len(data['time_matrix'][i])):
-    #         if data['time_matrix'][i][j] is None:
-    #             data['time_matrix'][i][j] = 0
+    for i in range(len(data['time_matrix'])):
+        for j in range(len(data['time_matrix'][i])):
+            if data['time_matrix'][i][j] is None:
+                data['time_matrix'][i][j] = 0
     
-    # for i in range(len(data['distance_matrix'])):
-    #     for j in range(len(data['distance_matrix'][i])):
-    #         if data['distance_matrix'][i][j] is None:
-    #             data['distance_matrix'][i][j] = 0
+    for i in range(len(data['distance_matrix'])):
+        for j in range(len(data['distance_matrix'][i])):
+            if data['distance_matrix'][i][j] is None:
+                data['distance_matrix'][i][j] = 0
 
     with open('data.json', 'w') as outfile:
         json.dump(data, outfile)
@@ -567,6 +570,7 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
             continue
         if assignment.Value(routing.NextVar(node)) == node:
             dropped_nodes += ' {}'.format(manager.IndexToNode(node))
+            # print(dropped_nodes)
     print(dropped_nodes)
 
     # Display routes
@@ -582,7 +586,7 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
 
     # check if the analytics array is empty of not
     if(len(analytics) !=0):
-        analytics = []
+        analytics.clear()
 
 
     for vehicle_id in range(data['num_vehicles']):
@@ -590,9 +594,11 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
         route_load = 0
 
         routes = []
-        dict_analytics = {}
+        print("while not routing")
 
         while not routing.IsEnd(index):
+            dict_analytics = {}
+            print(index)
 
             time_var = time_dimension.CumulVar(index)
             distance_var = distance_dimension.CumulVar(index)
@@ -607,7 +613,7 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
             dict_analytics['maximumTimeTaken'] = maximumTimeTaken
             dict_analytics['distanceTraveled'] = distanceTraveled
             dict_analytics['load'] = load
-
+            print(dict_analytics)
 
             node_index = manager.IndexToNode(index)
             time_taken = time_callback(index, index+1)
@@ -620,7 +626,7 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
             routes.append(route)
         
             # adding analytics dict to anaylytics array
-            analytics.append(dict_analytics);
+            analytics.append(dict_analytics)
 
             index = assignment.Value(routing.NextVar(index))
 
@@ -665,12 +671,13 @@ def cvrptw_with_dropped_locations():
     
     # Instantiate the data problem
     # data = create_data_model()
-
     # Create the routing index manager
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
     
     # Create Routing Model
     routing = pywrapcp.RoutingModel(manager)
+
+
 
     # Create and register a transit callback.
     def time_callback(from_index, to_index):
@@ -682,8 +689,7 @@ def cvrptw_with_dropped_locations():
 
     transit_callback_index = routing.RegisterTransitCallback(time_callback)
 
-    # Define cost of each arc.
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+    
 
     # Create and register a transit callback.
     def distance_callback(from_index, to_index):
@@ -696,7 +702,7 @@ def cvrptw_with_dropped_locations():
     distance_callback_index = routing.RegisterTransitCallback(distance_callback)
 
     # Define cost of each arc.
-    # routing.SetArcCostEvaluatorOfAllVehicles(distance_callback_index)
+    routing.SetArcCostEvaluatorOfAllVehicles(distance_callback_index)
 
     # Add Distance constraint.
     dimension_name = 'Distance'
@@ -708,7 +714,6 @@ def cvrptw_with_dropped_locations():
         dimension_name)
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
     distance_dimension.SetGlobalSpanCostCoefficient(100)
-
 
 
     # Add Capacity constraint.
@@ -726,26 +731,31 @@ def cvrptw_with_dropped_locations():
         True,  # start cumul to zero
         'Capacity')
     
+
     # Allow to drop nodes.
     penalty = 1000
     for node in range(1, len(data['time_matrix'])):
         routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
 
+    
     # Add Time Windows constraint.
     time = 'Time'
-    # routing.AddDimension(transit_callback_index,
-    #     30,  # allow waiting time
-    #     30,  # maximum time per vehicle
-    #     False,  # Don't force start cumul to zero.
-    #     time)
+    routing.AddDimension(transit_callback_index,
+        30,  # allow waiting time
+        30,  # maximum time per vehicle
+        False,  # Don't force start cumul to zero.
+        time)
     time_dimension = routing.GetDimensionOrDie(time)
     
+    
     # Add time window constraints for each location except depot.
-    for location_idx, time_window in enumerate(data['time_windows']):
+    for location_idx, time_window in data['time_windows']:
+        # print(time_window)
         if location_idx == 0:
             continue
         index = manager.NodeToIndex(location_idx)
         time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+
 
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
@@ -761,7 +771,7 @@ def cvrptw_with_dropped_locations():
     # Print solution on console.
     solution = None
     if assignment:
-        solution = get_solution(data, manager, routing, assignment, time_callback)
+        solution = get_solution(data, manager, routing, assignment, time_callback, distance_callback)
 
 @csrf_exempt
 def get_waypoint_to_coord(request):
