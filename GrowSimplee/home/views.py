@@ -175,6 +175,35 @@ data_store_time_matrix = []
 data_store_distance_matrix = []
 completed_deliveries = 0
 
+# analytics dictionary
+analytics = []
+"""
+[
+    {
+        
+        maxTimeTaken:max_time_taken
+        minTimeTaken:min_time_taken
+        distaceTravelled:dis...
+        load:capacity   
+    },
+    {
+        maxTimeTaken:max_time_taken
+        minTimeTaken:min_time_taken
+        distaceTravelled:dis...
+        load:capacity   
+    },
+    {
+        maxTimeTaken:max_time_taken
+        minTimeTaken:min_time_taken
+        distaceTravelled:dis...
+        load:capacity    
+    }
+]
+"""
+
+
+
+
 def get_lati_long(query):
     # Using Google Maps API
     base_url = 'https://maps.googleapis.com/maps/api/geocode/json?'
@@ -379,6 +408,9 @@ def process_data(request):
     with open('data_locations.json', 'r') as f:
         data_locations = json.load(f)
 
+    # print(request.FILES['dispatchAdd'])
+    # print(request.FILES)
+
     # checking dispatchAdd
     if 'dispatchAdd' in request.FILES:
         dispatchAdd = request.FILES['dispatchAdd']
@@ -447,6 +479,18 @@ def process_data(request):
     # setting data for depot
     data['depot'] = 0
 
+    # replace null values with 0
+    # Temporary solution
+    for i in range(len(data['time_matrix'])):
+        for j in range(len(data['time_matrix'][i])):
+            if data['time_matrix'][i][j] is None:
+                data['time_matrix'][i][j] = 0
+    
+    for i in range(len(data['distance_matrix'])):
+        for j in range(len(data['distance_matrix'][i])):
+            if data['distance_matrix'][i][j] is None:
+                data['distance_matrix'][i][j] = 0
+
     with open('data.json', 'w') as outfile:
         json.dump(data, outfile)
 
@@ -461,7 +505,58 @@ def process_data(request):
 
     return JsonResponse(response)
 
-def get_solution(data, manager, routing, assignment, time_callback):
+
+def create_data_model():
+    """Stores the data for the problem."""
+
+    # In this we need to create time matrix using the DISTANCE API
+    # Time window, vehicle capacity, demands, num_vehicles will be provided in the data
+    data['time_matrix'] = [
+                [0, 6, 9, 8, 7, 3, 6, 2, 3, 2, 6, 6, 4, 4, 5, 9, 7],
+                [6, 0, 8, 3, 2, 6, 8, 4, 8, 8, 13, 7, 5, 8, 12, 10, 14],
+                [9, 8, 0, 11, 10, 6, 3, 9, 5, 8, 4, 15, 14, 13, 9, 18, 9],
+                [8, 3, 11, 0, 1, 7, 10, 6, 10, 10, 14, 6, 7, 9, 14, 6, 16],
+                [7, 2, 10, 1, 0, 6, 9, 4, 8, 9, 13, 4, 6, 8, 12, 8, 14],
+                [3, 6, 6, 7, 6, 0, 2, 3, 2, 2, 7, 9, 7, 7, 6, 12, 8],
+                [6, 8, 3, 10, 9, 2, 0, 6, 2, 5, 4, 12, 10, 10, 6, 15, 5],
+                [2, 4, 9, 6, 4, 3, 6, 0, 4, 4, 8, 5, 4, 3, 7, 8, 10],
+                [3, 8, 5, 10, 8, 2, 2, 4, 0, 3, 4, 9, 8, 7, 3, 13, 6],
+                [2, 8, 8, 10, 9, 2, 5, 4, 3, 0, 4, 6, 5, 4, 3, 9, 5],
+                [6, 13, 4, 14, 13, 7, 4, 8, 4, 4, 0, 10, 9, 8, 4, 13, 4],
+                [6, 7, 15, 6, 4, 9, 12, 5, 9, 6, 10, 0, 1, 3, 7, 3, 10],
+                [4, 5, 14, 7, 6, 7, 10, 4, 8, 5, 9, 1, 0, 2, 6, 4, 8],
+                [4, 8, 13, 9, 8, 7, 10, 3, 7, 4, 8, 3, 2, 0, 4, 5, 6],
+                [5, 12, 9, 14, 12, 6, 6, 7, 3, 3, 4, 7, 6, 4, 0, 9, 2],
+                [9, 10, 18, 6, 8, 12, 15, 8, 13, 9, 13, 3, 4, 5, 9, 0, 9],
+                [7, 14, 9, 16, 14, 8, 5, 10, 6, 5, 4, 10, 8, 6, 2, 9, 0],
+            ]
+    # According to our problem, the first parameter will be zero only
+    data['time_windows'] = [
+                (0, 60),  # depot
+                (0, 30),  # 1
+                (0, 40),  # 2
+                (0, 50),  # 3
+                (0, 30),  # 4
+                (0, 40),  # 5
+                (0, 60),  # 6
+                (0, 50),  # 7
+                (0, 50),  # 8
+                (0, 30),  # 9
+                (0, 40),  # 10
+                (0, 15),  # 11
+                (0, 5),  # 12
+                (0, 10),  # 13
+                (0, 8),  # 14
+                (0, 15),  # 15
+                (0, 15),  # 16
+              ]
+    data['demands'] = [0, 1, 1, 2, 4, 2, 4, 8, 3, 1, 2, 1, 2, 4, 4, 5, 5]
+    data['vehicle_capacities'] = [15, 15]
+    data['num_vehicles'] = 2
+    data['depot'] = 0
+    return data
+
+def get_solution(data, manager, routing, assignment, time_callback, distance_callback):
     All_Routes = []
 
     """Prints assignment on console."""
@@ -473,17 +568,50 @@ def get_solution(data, manager, routing, assignment, time_callback):
             continue
         if assignment.Value(routing.NextVar(node)) == node:
             dropped_nodes += ' {}'.format(manager.IndexToNode(node))
+            # print(dropped_nodes)
     print(dropped_nodes)
+
     # Display routes
-    total_distance = 0
-    total_load = 0
+    time_dimension = routing.GetDimensionOrDie('Time')
+    distance_dimension = routing.GetDimensionOrDie('Distance')
+    capacity_dimension = routing.GetDimensionOrDie('Capacity')
+
+    # redundant
+    # total_time = 0
+    # total_distance = 0
+    # total_load=0
+
+
+    # check if the analytics array is empty of not
+    if(len(analytics) !=0):
+        analytics.clear()
+
+
     for vehicle_id in range(data['num_vehicles']):
         index = routing.Start(vehicle_id)
         route_load = 0
 
         routes = []
+        print("while not routing")
 
         while not routing.IsEnd(index):
+            dict_analytics = {}
+            print(index)
+
+            time_var = time_dimension.CumulVar(index)
+            distance_var = distance_dimension.CumulVar(index)
+            capacity_var = capacity_dimension.CumulVar(index)
+            
+            minimumTimeTaken = assignment.Min(time_var)
+            maximumTimeTaken = assignment.Max(time_var)
+            distanceTraveled = assignment.Value(distance_var)
+            load = assignment.Value(capacity_var)
+
+            dict_analytics['minimumTimeTaken'] = minimumTimeTaken
+            dict_analytics['maximumTimeTaken'] = maximumTimeTaken
+            dict_analytics['distanceTraveled'] = distanceTraveled
+            dict_analytics['load'] = load
+            print(dict_analytics)
 
             node_index = manager.IndexToNode(index)
             time_taken = time_callback(index, index+1)
@@ -494,9 +622,41 @@ def get_solution(data, manager, routing, assignment, time_callback):
             route.append(route_load)
             route.append(time_taken)
             routes.append(route)
+        
+            # adding analytics dict to anaylytics array
+            analytics.append(dict_analytics)
 
             index = assignment.Value(routing.NextVar(index))
+
+        # last point analytics calculation
+        time_var = time_dimension.CumulVar(index)
+        distance_var = distance_dimension.CumulVar(index)
+        capacity_var = capacity_dimension.CumulVar(index)
         
+        # Adding last point analytics
+        minimumTimeTaken = assignment.Min(time_var)
+        maximumTimeTaken = assignment.Max(time_var)
+        distanceTraveled = assignment.Value(distance_var)
+        load = assignment.Value(capacity_var)
+
+        dict_analytics['minimumTimeTaken'] = minimumTimeTaken
+        dict_analytics['maximumTimeTaken'] = maximumTimeTaken
+        dict_analytics['distanceTraveled'] = distanceTraveled
+        dict_analytics['load'] = load
+
+        analytics.append(dict_analytics)
+
+        # dumping all info to a json file
+        with open('analytics.json', 'w') as outfile:
+            json.dump(analytics, outfile)
+
+
+        # Adding total_distance, total_time and total_load at the end of each analytic
+        # redundant code
+        # total_time += assignment.Min(time_var)
+        # total_distance += assignment.Value(distance_var)
+        # total_load += assignment.Value(capacity_var)
+
         All_Routes.append(routes)
     
     # Just for checking purposes
@@ -511,12 +671,13 @@ def cvrptw_with_dropped_locations():
     
     # Instantiate the data problem
     # data = create_data_model()
-
     # Create the routing index manager
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
     
     # Create Routing Model
     routing = pywrapcp.RoutingModel(manager)
+
+
 
     # Create and register a transit callback.
     def time_callback(from_index, to_index):
@@ -530,8 +691,32 @@ def cvrptw_with_dropped_locations():
 
     transit_callback_index = routing.RegisterTransitCallback(time_callback)
 
+    
+
+    # Create and register a transit callback.
+    def distance_callback(from_index, to_index):
+        """Returns the distance between the two nodes."""
+        # Convert from routing variable Index to distance matrix NodeIndex.
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['distance_matrix'][from_node][to_node]
+
+    distance_callback_index = routing.RegisterTransitCallback(distance_callback)
+
     # Define cost of each arc.
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+    routing.SetArcCostEvaluatorOfAllVehicles(distance_callback_index)
+
+    # Add Distance constraint.
+    dimension_name = 'Distance'
+    routing.AddDimension(
+        distance_callback_index,
+        0,  # no slack
+        10_000,  # vehicle maximum travel distance
+        True,  # start cumul to zero
+        dimension_name)
+    distance_dimension = routing.GetDimensionOrDie(dimension_name)
+    distance_dimension.SetGlobalSpanCostCoefficient(100)
+
 
     # Add Capacity constraint.
     def demand_callback(from_index):
@@ -548,11 +733,13 @@ def cvrptw_with_dropped_locations():
         True,  # start cumul to zero
         'Capacity')
     
-    # Allow to drop nodes.
-    # penalty = 100000000
-    # for node in range(1, len(data['time_matrix'])):
-    #     routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
 
+    # Allow to drop nodes.
+    penalty = 1000
+    for node in range(1, len(data['time_matrix'])):
+        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+
+    
     # Add Time Windows constraint.
     time = 'Time'
     routing.AddDimension(transit_callback_index,
@@ -560,14 +747,22 @@ def cvrptw_with_dropped_locations():
         30,  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time)
+    routing.AddDimension(transit_callback_index,
+        30,  # allow waiting time
+        30,  # maximum time per vehicle
+        False,  # Don't force start cumul to zero.
+        time)
     time_dimension = routing.GetDimensionOrDie(time)
     
+    
     # Add time window constraints for each location except depot.
-    for location_idx, time_window in enumerate(data['time_windows']):
+    for location_idx, time_window in data['time_windows']:
+        # print(time_window)
         if location_idx == 0:
             continue
         index = manager.NodeToIndex(location_idx)
         time_dimension.CumulVar(index).SetRange(time_window[0], time_window[1])
+
 
     # Setting first solution heuristic.
     search_parameters = pywrapcp.DefaultRoutingSearchParameters()
@@ -583,7 +778,7 @@ def cvrptw_with_dropped_locations():
     # Print solution on console.
     solution = None
     if assignment:
-        solution = get_solution(data, manager, routing, assignment, time_callback)
+        solution = get_solution(data, manager, routing, assignment, time_callback, distance_callback)
 
 @csrf_exempt
 def get_waypoint_to_coord(request):
@@ -598,8 +793,6 @@ def get_waypoint_to_coord(request):
     response['lat'] = lat
     response['lon'] = lon
     return JsonResponse(response)
-
-
 
 def find_kth_delivery_item(k):
     # This function finds information of the kth delivery item being delivered
