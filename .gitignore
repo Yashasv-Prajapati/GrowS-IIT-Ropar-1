@@ -1,1 +1,4 @@
 .env
+*.pyc
+node_modules/
+*.gitignore
