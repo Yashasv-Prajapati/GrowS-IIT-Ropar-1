@@ -497,6 +497,16 @@ def process_data(request):
         print("Building the time-distance matrix")
         build_time_distance_matrix(locations_list=data_locations,build = False)
 
+    # Just for testing
+    # time_matrix = []
+    # distance_matrix = []
+    # # build a 10*10 matrix from data['time_matrix'] and data['distance_matrix']
+    # for i in range(10):
+    #     time_matrix.append(data['time_matrix'][i][:10])
+    #     distance_matrix.append(data['distance_matrix'][i][:10])
+    # data['time_matrix'] = time_matrix
+    # data['distance_matrix'] = distance_matrix
+
     # TODO: Need to set the depot location
     # setting data for depot
     data['depot'] = 0
@@ -694,6 +704,11 @@ def cvrptw_with_dropped_locations():
     # Instantiate the data problem
     # data = create_data_model()
     # Create the routing index manager
+
+    # convert time_windows array to tuple
+    # for i in range(len(data['time_windows'])):
+    #     data['time_windows'][i] = tuple(data['time_windows'][i])
+    print(data)
     manager = pywrapcp.RoutingIndexManager(len(data['time_matrix']),data['num_vehicles'], data['depot'])
     
     # Create Routing Model
@@ -725,15 +740,15 @@ def cvrptw_with_dropped_locations():
 
     distance_callback_index = routing.RegisterTransitCallback(distance_callback)
 
-    # Define cost of each arc.
+    #Define cost of each arc.
     routing.SetArcCostEvaluatorOfAllVehicles(distance_callback_index)
 
-    # Add Distance constraint.
+    #Add Distance constraint.
     dimension_name = 'Distance'
     routing.AddDimension(
         distance_callback_index,
         0,  # no slack
-        10_000,  # vehicle maximum travel distance
+        10000000000,  # vehicle maximum travel distance
         True,  # start cumul to zero
         dimension_name)
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
@@ -764,12 +779,7 @@ def cvrptw_with_dropped_locations():
     time = 'Time'
     routing.AddDimension(transit_callback_index,
         30,  # allow waiting time
-        30,  # maximum time per vehicle
-        False,  # Don't force start cumul to zero.
-        time)
-    routing.AddDimension(transit_callback_index,
-        30,  # allow waiting time
-        30,  # maximum time per vehicle
+        1000000,  # maximum time per vehicle
         False,  # Don't force start cumul to zero.
         time)
     time_dimension = routing.GetDimensionOrDie(time)
@@ -790,7 +800,7 @@ def cvrptw_with_dropped_locations():
         routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC)
     search_parameters.local_search_metaheuristic = (
         routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH)
-    search_parameters.time_limit.FromSeconds(60)
+    search_parameters.time_limit.FromSeconds(10)
 
     # Solve the problem.
     assignment = routing.SolveWithParameters(search_parameters)
