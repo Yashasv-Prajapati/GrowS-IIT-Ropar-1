@@ -11,4 +11,5 @@ urlpatterns = [
     path('admin_routes', views.admin_routes, name='admin_routes'),
     path('get_waypoint_to_coord', views.get_waypoint_to_coord, name='get_waypoint_to_coord'),
     path('add_data', views.process_data, name='add_data'),
+    
 ]
