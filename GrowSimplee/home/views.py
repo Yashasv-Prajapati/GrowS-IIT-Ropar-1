@@ -197,6 +197,17 @@ def build_time_distance_matrix(locations_list,build):
 
         data['time_matrix'] = data_store_time_matrix
         data['distance_matrix'] = data_store_distance_matrix
+        # convert all float values to int
+        for i in range(len(data['time_matrix'])):
+            for j in range(len(data['time_matrix'][i])):
+                if data['time_matrix'][i][j] is None:
+                    data['time_matrix'][i][j] = 500
+                data['time_matrix'][i][j] = int(data['time_matrix'][i][j])
+        for i in range(len(data['distance_matrix'])):
+            for j in range(len(data['distance_matrix'][i])):
+                if data['distance_matrix'][i][j] is None:
+                    data['distance_matrix'][i][j] = 1000
+                data['distance_matrix'][i][j] = int(data['distance_matrix'][i][j])
         return data_store_time_matrix, data_store_distance_matrix
 
     print("Hi")
@@ -229,6 +240,17 @@ def build_time_distance_matrix(locations_list,build):
             time_matrix.append(data_res['durations'][j])
             distance_matrix.append(data_res['distances'][j])
 
+    for i in range(len(time_matrix)):
+        for j in range(len(time_matrix[i])):
+            if time_matrix[i][j] is None:
+                time_matrix[i][j] = 0
+            time_matrix[i][j] = time_matrix[i][j]
+    for i in range(len(distance_matrix)):
+        for j in range(len(distance_matrix[i])):
+            # TODO: Instead of assigning 0, call google matrix api for this
+            if distance_matrix[i][j] is None:
+                distance_matrix[i][j] = 0
+            distance_matrix[i][j] = distance_matrix[i][j]
     data_store_time_matrix = time_matrix
     data_store_distance_matrix = distance_matrix
     
@@ -548,10 +570,10 @@ def cvrptw_with_dropped_locations():
         True,  # start cumul to zero
         'Capacity')
     
-    # Allow to drop nodes.
-    # penalty = 100000000
-    # for node in range(1, len(data['time_matrix'])):
-    #     routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
+    #Allow to drop nodes.
+    penalty = 10000000000000
+    for node in range(1, len(data['time_matrix'])):
+        routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
 
     # Add Time Windows constraint.
     time = 'Time'
