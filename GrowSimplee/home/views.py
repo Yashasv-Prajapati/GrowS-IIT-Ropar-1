@@ -13,6 +13,7 @@ import json
 import cv2
 import numpy as np
 from multimethod import multimethod
+import datetime
 
 load_dotenv()
 API_KEY = os.getenv('API_KEY')
@@ -417,6 +418,15 @@ def admin_routes(request):
     response['routes'] = driver_routes
     return JsonResponse(response)
 
+def convert_edd(edd,date):
+    # convert the edd(date)(DD-MM-YYYY) to seconds with respect to given date
+    edd = edd.split('-')
+    edd = datetime.datetime(int(edd[2]),int(edd[1]),int(edd[0]))
+    date = date.split('-')
+    date = datetime.datetime(int(date[0]),int(date[1]),int(date[2]))
+    seconds = (edd-date).total_seconds()
+    return int(seconds)
+
 @csrf_exempt
 def process_data(request):
     
@@ -424,14 +434,29 @@ def process_data(request):
     response['status']='OK'
     response['message']='success'
 
-    print("hi")
-
     # read the data from the file data_locations.json into data_locations
+    # Only for local testing
     with open('data_locations.json', 'r') as f:
         data_locations = json.load(f)
 
-    # print(request.FILES['dispatchAdd'])
-    # print(request.FILES)
+    data['time_windows'] = []
+
+    # setting data for depot
+    if 'depotAdd' in request.POST:
+        if len(data_locations) == 0:
+            data_locations_dict = {}
+            data_locations_dict['address'] = request.POST['depotAdd']
+            data_locations_dict['type'] = 'depot'
+            lat, lon = get_lati_long(data_locations_dict['address'])
+            data_locations_dict['lat'] = lat
+            data_locations_dict['lon'] = lon
+            data_locations.append(data_locations_dict)
+
+    if 'date' in request.POST:
+        data['date'] = request.POST['date']
+
+    if 'time' in request.POST:
+        data['time'] = request.POST['time']
 
     # checking dispatchAdd
     if 'dispatchAdd' in request.FILES:
@@ -441,6 +466,9 @@ def process_data(request):
         # setting data for dispatchAdd
         for row in range(dispatchAdd_sheet.shape[0]):
             # check if the address is already present in the data_locations
+            delivery_date = dispatchAdd_sheet['EDD'][row]
+            data['time_windows'].append((0, convert_edd(delivery_date, data['date'])))
+            
             if dispatchAdd_sheet['address'][row] in [data_locations_dict['address'] for data_locations_dict in data_locations]:
                 continue
             data_locations_dict = {}
@@ -477,7 +505,6 @@ def process_data(request):
     if 'vehicleNum' in request.POST:
         data['num_vehicles'] = int(request.POST['vehicleNum'])
 
-    # setting data for time window
     # TODO: Need to set time window for each location
     data['time_windows'] = [[0, 43200]] * len(data_locations)
 
@@ -489,30 +516,17 @@ def process_data(request):
     data['demands'][0] = 0
 
     # Bag dimensions data
-    # TODO: Bag dimensions data -> Vehicle capacities thing
     if 'bagNum1' in request.POST and 'bagNum2' in request.POST and 'num_vehicles' in data:
         bag_creation_strategy(int(request.POST['bagNum1']),int(request.POST['bagNum2']),data['num_vehicles'])
 
     if data_locations is not None:
         print("Building the time-distance matrix")
-        build_time_distance_matrix(locations_list=data_locations,build = False)
-
-    # Just for testing
-    # time_matrix = []
-    # distance_matrix = []
-    # # build a 10*10 matrix from data['time_matrix'] and data['distance_matrix']
-    # for i in range(10):
-    #     time_matrix.append(data['time_matrix'][i][:10])
-    #     distance_matrix.append(data['distance_matrix'][i][:10])
-    # data['time_matrix'] = time_matrix
-    # data['distance_matrix'] = distance_matrix
-
-    # TODO: Need to set the depot location
-    # setting data for depot
-    data['depot'] = 0
+        build_time_distance_matrix(locations_list=data_locations,build = True)
+    
 
     # replace null values with 0
     # Temporary solution
+    # TODO: Compensate with Google API
     for i in range(len(data['time_matrix'])):
         for j in range(len(data['time_matrix'][i])):
             if data['time_matrix'][i][j] is None:
@@ -528,7 +542,7 @@ def process_data(request):
 
     print("Done Data Processing")
     # Initial solution called
-    cvrptw_with_dropped_locations()
+    # cvrptw_with_dropped_locations()
 
     print("Completed building the solution")
     # For each pickup location, add_pickup_location is called

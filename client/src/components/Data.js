@@ -9,6 +9,9 @@ function Data() {
     const [bagNum2, setbagNum2]=useState(0) // 80 80 100
     const [dispatchAdd, setDispatchAdd] = useState(null)
     const [pickupAdd, setPickUpAdd] = useState(null)
+    const [date, setDate] = useState(null)
+    const [time, setTime] = useState(null)
+    const [depotAdd, setDepotAdd] = useState(null)
     
     async function sendData(e){
       e.preventDefault()
@@ -21,6 +24,9 @@ function Data() {
       formData.append('pickupAdd', pickupAdd)
       formData.append('bagNum1', bagNum1)
       formData.append('bagNum2', bagNum2)
+      formData.append('date', date)
+      formData.append('time', time)
+      formData.append('depotAdd', depotAdd)
 
       fetch("http://localhost:8000/add_data", {
         method:'post',
@@ -63,11 +69,11 @@ function Data() {
     }
   }
 
-  const setCapacity = (e, index) => {
-    CapacityArr[index] = parseInt(e.target.value)
-    setCapacityArr(CapacityArr)
-    console.log(CapacityArr)
-  }
+  // const setCapacity = (e, index) => {
+  //   CapacityArr[index] = parseInt(e.target.value)
+  //   setCapacityArr(CapacityArr)
+  //   console.log(CapacityArr)
+  // }
 
   return (
 
@@ -84,6 +90,14 @@ function Data() {
           name="dispatch_addresses"
           accept=".xls,.xlsx,.csv,.txt" />
       </div>
+
+      <div className="w-full px-3 mb-3 md:mb-0">
+        <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-state">
+          Date
+        </label>
+        <input onChange={(e)=>setDate(e.target.value)} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-state" type="date" name="date"/>
+      </div>
+
       <div className="p-2 m-2">
         <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-last-name">
           Dynamic Pickup Addresses
@@ -96,14 +110,30 @@ function Data() {
 
       <div className="p-2 m-2">
         <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
+          Time at which the pickup_addresses file are to be added
+        </label>
+        {/* Input needs to only of time */}
+        <input onChange={(e)=>{setTime(e.target.value)}} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
+          id="grid-password" type="time" name="time" />
+      </div>
+
+      <div className="p-2 m-2">
+        <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
           Number of Vehicles
         </label>
         <input onChange={setVehicleNumber} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500" 
         id="grid-password" type="number" name = "number_of_vehicles"/>
-
       </div>
 
-      <div className="w-full px-3 mb-6 md:mb-0">
+      <div className="p-2 m-2">
+        <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
+          Depot Address
+        </label>
+        <input onChange={(e)=>setDepotAdd(e.target.value)} className="appearance-none block w-full bg-gray-200 text-gray-700 border border-gray-200 rounded py-3 px-4 mb-3 leading-tight focus:outline-none focus:bg-white focus:border-gray-500"
+          id="grid-password" type="text" name="depot_address" />
+      </div>
+
+      {/* <div className="w-full px-3 mb-6 md:mb-0">
         {
           [...Array(vehicleNum)].map((item, index) => {
             return (
@@ -117,9 +147,9 @@ function Data() {
             )
           })
         }
-      </div>
+      </div> */}
 
-      <div className='w-full my-4 flex justify-center flex-col md:flex-col lg:flex-col'>
+      <div className='w-full mb-2 flex justify-center flex-col md:flex-col lg:flex-col'>
             {/* Batch menu button */} 
             <div className="w-full px-3">
               <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
@@ -137,10 +167,9 @@ function Data() {
             </div>
       </div>
 
-
       <div className="flex flex-wrap -mx-3 mb-2">
 
-        <button className='bg-blue-300 hover:bg-blue-400 active:bg-blue-300 p-4 mx-auto rounded' type='submit'>
+        <button className='bg-blue-300 hover:bg-blue-400 active:bg-blue-300 p-4 m-2 mx-auto rounded' type='submit'>
           Add Information
         </button>
 

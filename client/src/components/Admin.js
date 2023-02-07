@@ -107,8 +107,9 @@ export default function Admin() {
               <Marker position={{lat: 28, lng: 77}} />
               {/* Write a code to plot a route on Google Maps */}
               { directionInfo.map((direction,index) => {
-                if (direction === null) {
-                  return null;
+                if (direction == null) {
+                  console.log("Direction is null")
+                  return;
                 }
                 return (
                   <DirectionsRenderer options={{directions: direction}}/>
@@ -132,7 +133,9 @@ export default function Admin() {
                   }
                   
                   callback={(res) => {
-                    if (res !== null && directionInfo[index] === null) {
+                    console.log(res)
+                    console.log(directionInfo[index])
+                    if (res != null) {
                        setDirectionInfo((prev) => {
                           prev[index] = res;
                           return prev;
@@ -150,15 +153,6 @@ export default function Admin() {
       }
       {/* <MapContainerRoutes routes={routes}/> */}
       {/* Add a form to add a dynamic waypoint */}
-      <AdminForm />
-      <form className='flex flex-col justify-center items-center' onSubmit={addWayPoint}>
-        <label className='text-3xl text-center my-4'>Add Way Points</label>
-        <div className='flex flex-row'>
-          <input className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" type="text" name="waypoint" />
-          <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Add Waypoint</button>
-        </div>
-
-      </form>
       {/* Display the current routes */}
       <Container className=''>
 
