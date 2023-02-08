@@ -1,0 +1,194 @@
+[
+    {
+     "skuNum": 1,
+     "volume": 26,
+     "height": 63,
+     "weight": 252,
+     "length": 56,
+     "breadth": 76
+    },
+    {
+        "skuNum": 2,
+        "volume": 36,
+        "height": 23,
+        "weight": 252,
+        "length": 56,
+        "breadth": 77
+    },
+    {
+        "skuNum": 3,
+        "volume": 31,
+        "height": 59,
+        "weight": 252,
+        "length": 56,
+        "breadth": 76
+    },
+    {
+     "skuNum": 4,
+     "volume": 45,
+     "height": 754,
+     "weight": 7,
+     "length": 7,
+     "breadth": 4
+    },
+    {
+     "skuNum": 5,
+     "volume": 5,
+     "height": 7,
+     "weight": 74,
+     "length": 5,
+     "breadth": 5
+    },
+    {
+     "skuNum": 6,
+     "volume": 54,
+     "height": 47,
+     "weight": 4,
+     "length": 7,
+     "breadth": 58
+    },
+    {
+     "skuNum": 7,
+     "volume": 5464,
+     "height": 6,
+     "weight": 7,
+     "length": 45,
+     "breadth": 573
+    },
+    {
+     "skuNum": 8,
+     "volume": 657,
+     "height": 8,
+     "weight": 4,
+     "length": 7547,
+     "breadth": 8
+    },
+    {
+     "skuNum": 9,
+     "volume": 653,
+     "height": 6,
+     "weight": 47,
+     "length": 5,
+     "breadth": 46
+    },
+    {
+     "skuNum": 10,
+     "volume": 63,
+     "height": 87,
+     "weight": 7,
+     "length": 7,
+     "breadth": 38
+    },
+    {
+     "skuNum": 11,
+     "volume": 2,
+     "height": 5,
+     "weight": 11,
+     "length": 5,
+     "breadth": 7
+    },
+    {
+     "skuNum": 12,
+     "volume": 25,
+     "height": 8,
+     "weight": 12,
+     "length": 87,
+     "breadth": 84
+    },
+    {
+     "skuNum": 13,
+     "volume": 13,
+     "height": 76,
+     "weight": 65,
+     "length": 9,
+     "breadth": 3
+    },
+    {
+     "skuNum": 14,
+     "volume": 78,
+     "height": 4,
+     "weight": 8,
+     "length": 5,
+     "breadth": 8
+    },
+    {
+     "skuNum": 15,
+     "volume": 860,
+     "height": 7,
+     "weight": 67,
+     "length": 83,
+     "breadth": 6
+    },
+    {
+     "skuNum": 16,
+     "volume": 85,
+     "height": 74,
+     "weight": 4,
+     "length": 5,
+     "breadth": 34
+    },
+    {
+     "skuNum": 17,
+     "volume": 3,
+     "height": 4,
+     "weight": 74,
+     "length": 17,
+     "breadth": 2
+    },
+    {
+     "skuNum": 18,
+     "volume": 754,
+     "height": 74,
+     "weight": 7,
+     "length": 18,
+     "breadth": 5
+    },
+    {
+     "skuNum": 19,
+     "volume": 19,
+     "height": 74,
+     "weight": 4,
+     "length": 19,
+     "breadth": 2
+    },
+    {
+     "skuNum": 20,
+     "volume": 20,
+     "height": 20,
+     "weight": 7,
+     "length": 25,
+     "breadth": 7
+    },
+    {
+     "skuNum": 21,
+     "volume": 21,
+     "height": 21,
+     "weight": 547,
+     "length": 23,
+     "breadth": 74
+    },
+    {
+     "skuNum": 22,
+     "volume": 22,
+     "height": 22,
+     "weight": 22,
+     "length": 5,
+     "breadth": 7
+    },
+    {
+     "skuNum": 23,
+     "volume": 23,
+     "height": 23,
+     "weight": 23,
+     "length": 6,
+     "breadth": 23
+    },
+    {
+     "skuNum": 24,
+     "volume": 24,
+     "height": 24,
+     "weight": 24,
+     "length": 35,
+     "breadth": 24
+    }
+   ]

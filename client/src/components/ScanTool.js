@@ -1,10 +1,11 @@
 import React from 'react'
 // import shorid from 'shortid';
 import shortid from 'shortid';
+import jsonFile from './data.json';
 
 export default function ScanTool() {
   
-  const arr = [
+  let arr = [
     {
       'skuNo': '69',
       'name': "yashasav 1",
@@ -86,7 +87,14 @@ export default function ScanTool() {
       'weight': '69 kg',
     },
   ]
+
+  arr = jsonFile;
+  console.log(jsonFile);
+
+
+
   
+
   
   
   
@@ -103,14 +111,14 @@ export default function ScanTool() {
             {/* Test Card */}
               <div className="max-w-sm m-4 p-4 bg-gradient-to-r from-green-300 to-green-400 hover:bg-green-400 active:bg-green-300 rounded overflow-hidden shadow-lg">
                   <div className = "px-2 py-1">
-                      <div className = "font-bold text-xl mb-2 text-center capitalize">{item.name}</div>
+                      {/* <div className = "font-bold text-xl mb-2 text-center capitalize">{item.name}</div> */}
                       
                       <div className="flex flex-row justify-between items-center ">
                         <p className = "text-gray-700 text-xl p-2">
-                            skuNo.:
+                            SkuNo.:
                         </p>
                         <p className = "bg-gray-200 rounded my-2 p-2 text-gray-700 text-sm w-2/3 break-all">
-                           {item.skuNo}
+                           {item.skuNum}
                         </p>
                       </div>
 

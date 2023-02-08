@@ -7,6 +7,7 @@ import Admin from './components/Admin';
 import Driver from './components/Driver';
 import Header from './components/Header';
 import Data from './components/Data'
+import Upload from './components/Upload'
 import "bootstrap/dist/css/bootstrap.min.css"
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
       <Route path="admin" element={<Admin/>} />
       <Route path="driver" element={<Driver/>} />
       <Route path="data" element={<Data/>} />
+      <Route path="upload" element={<Upload/>} />
     </Routes>
     </>
   );
