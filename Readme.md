@@ -41,9 +41,6 @@ Instead of using a camera at the bottom if a photosensitive screen can be used f
 The depth sensor calculates the height of the object and the camera captures the top view of the image. The image is preprocessed and the green pixels are removed from the image leaving out just the object pixels. The image is then converted to a binary image.From here the complete procedure is similar to the original idea. A minimum area bounding box is created around the object pixels and the length and breadth obtained in pixels are converted into the cm values which are multiplied with the height to obtain the volume.
 
 
-
-
-
 ## Tools used:
 To generate delivery routes, we first read longitude and latitude locations from an input text file. This is achieved by utilizing the Google Maps API in Python to obtain the geo-locations. A cost matrix is then created for each pair of destinations, with the cost being the distance between the two points by road. The distance and duration between pairs of points are calculated using a custom function, with an assumed driver speed of 50 km/hr. Next, we process other inputs such as expected delivery time, names, and AWB. For rider capacity and bag creation, we have implemented a custom bag creation strategy. All inputs are then passed to the OR Algorithm, where we select the appropriate route construction strategy and metaheuristic based on user input. The generated routes are sent to the frontend, where they are displayed using the Leaflet Routing Machine. The frontend is built using React.js, while the backend uses Django.
 
