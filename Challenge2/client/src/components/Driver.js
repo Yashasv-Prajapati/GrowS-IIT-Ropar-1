@@ -3,10 +3,9 @@ import {MapContainer, Marker, Popup, TileLayer} from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import LeafletRoutingMachine from './LeafletRoutingMachine'
-import driver_routes from './driver_routes.json'
-import MapContainerRoutes from './MapContainerRoutes';
 import { useNavigate, useParams} from 'react-router-dom'
 import { Card } from 'react-bootstrap'
+// import { useNavigate } from 'react-router-dom'
 
 
 const Map = ({route}) => {
@@ -34,30 +33,47 @@ export default function Driver() {
     const routes = [[]]
     const [route,setRoute] = useState([])
     const [analytics,setAnalytics] = useState([])
-    const driver = useParams().id
+    const driver_id = useParams().id
+    const [Driver, setDriver] = useState(driver_id)
     
+
     const getRoute = async () => {
-        const rte = await fetch(`http://localhost:8000/driver_route?index=${driver}`, {
+        const rte = await fetch(`http://localhost:8000/driver_route?index=${driver_id}`, {
             method:'get',
             headers:{
                 'Content-Type':'application/json'
             }
         })
         const data = await rte.json()
-        // console.log("Data is", data)
         setRoute(data.route)
     }
 
     const getAnalytics = async () => {
         const response = await fetch('http://localhost:8000/get_analytics')
         const data = await response.json();
-        // console.log("Analytics", data)
+        console.log("Analytics", data)
         setAnalytics(data)
       }
 
+      const navigate = useNavigate();
+
+    const changeDriver = () =>{
+        
+        if(Driver === NaN || Driver === undefined || Driver === "" || Driver === null){
+            alert("Please enter a driver");
+            return;  
+        }
+
+        navigate(`/driver/${Driver}`)
+
+        window.location.reload(true)
+
+
+
+    }
+
     useEffect(() => {
-        setRoute(routes[driver-1])
-        // console.log(route)
+        setRoute(routes[driver_id-1])
     }, [])
 
     useEffect(() => {
@@ -68,30 +84,38 @@ export default function Driver() {
   return (
     <div>
 
-    {/* <MapContainer center={route[0]} zoom={6} scrollWheelZoom={false} 
+    {
+    /* <MapContainer center={route[0]} zoom={6} scrollWheelZoom={false} 
         style={{ height:"400px",marginTop:"80px", marginBottom:'90px',width:"50%",marginLeft:"25%",marginRight:"25%"
             }} >
         <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         return <LeafletRoutingMachine waypoints={route}/>
-    </MapContainer> */}
+    </MapContainer> 
+    */
+    }
+
     {(route?.length !== 0 && route?.length!==undefined && route!==undefined) ? ( <Map route={route} />) : null}
 
     {/* <MapContainerRoutes routes={[route]} /> */}
+
+    <div className='flex flex-col justify-center items-center'>
+        <label className='mx-auto text-2xl p-2'>Enter Driver ID</label>
+        <input className='bg-gray-200 text-2xl rounded p-2' type="text" placeholder={'1'} onChange={(e) => setDriver(e.target.value)}/>
+        <button className='p-2 bg-blue-300 hover:bg-blue-400 active:bg-blue-300 rounded m-2' onClick={changeDriver}>Get Route</button>    
+    </div>
+
 
     <Card className='w-1/3 mx-auto my-4 rounded bg-blue-200 p-2 shadow-lg flex justify-center items-center'>
         <Card.Body>
         <Card.Title className="font-sans">Analytics</Card.Title>
         <Card.Text>
             <ul className="font-mono">
-            {/* <li>Number of Routes: ${}</li> */}
-            <li>Number of ontime deliveries of driver: {analytics['driver_analytics'] !==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(analytics["driver_analytics"][driver]['ontime_deliveries']) : 'NA'}</li>
-            <li>Number of ontime deliveries of driver: {analytics['driver_analytics']!==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(analytics["driver_analytics"][driver]['total_time']) : 'NA'}</li>
-            <li>Total Distance Covered: {parseInt(analytics["total_distance"])} km</li>
-            <li>Total Time Taken: {parseInt(parseInt(analytics["total_time"])/3600)} min</li>
-            <li>Percent Delivery Items: {parseFloat(analytics["percentage_ontime_deliveries"]).toFixed(2)}</li>
-            <li>Number of Successful Deliveries: {parseInt(analytics["total_ontime_deliveries"])}</li>
+                {/* <li>Number of Routes: ${}</li> */}
+                <li>Number of ontime deliveries of driver: {analytics['driver_analytics'] !==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(analytics["driver_analytics"][driver_id-1]['ontime_deliveries']) : 'NA'}</li>
+                <li>Time taken by driver: {analytics['driver_analytics']!==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(parseInt(analytics["driver_analytics"][driver_id-1]['total_time'])/60) : 'NA'} min</li>
+                <li>Total Distance Covered: {analytics['driver_analytics']!==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(parseInt(analytics["driver_analytics"][driver_id-1]['total_time'])/3600 * 40) : 'NA'} km</li>
             </ul>
             {/* Dropdown to show a particular driver analytics, a particular index */}
         </Card.Text>

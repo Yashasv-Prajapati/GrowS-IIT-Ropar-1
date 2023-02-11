@@ -1,12 +1,8 @@
 import React,{useState,useEffect, useCallback} from 'react'
-// import MapContainerRoutes from './MapContainerRoutes';
 import AdminForm from './AdminForm';
 import axios from 'axios';
 import { Button, Card, Container, Dropdown } from 'react-bootstrap';
-// import { GoogleMap, useJsApiLoader, Marker, InfoWindow, DirectionsRenderer, DirectionsService } from '@react-google-maps/api';
-import driver_routes from './driver_routes.json';
 import { useMemo, useRef } from 'react';
-// import React from 'react'
 import {MapContainer,TileLayer, Marker} from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -20,7 +16,8 @@ const MapContainerRoutes= (props) =>{
   return (
     <MapContainer center={props.routes[0][0]} zoom={6} scrollWheelZoom={false} 
         style={{ height:"70vh",marginTop:"80px", marginBottom:'90px',width:"80%",marginLeft:"auto",marginRight:"auto"
-            }} >
+          }} >
+
         <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
@@ -42,18 +39,10 @@ export default function Admin() {
 
   const [routes,setRoutes] = useState([
     [
-      [12.9120799, 77.5745235, "a"],
-      [12.9088826, 77.5857567, "b"], 
-      [12.9122542, 77.63633109999999, "c"],
-      [12.9120766, 77.6494981, "d"]
-    ],
-    [
       [12.9120799, 77.5745235, "e"],
-      [12.9088826, 77.5857567, "f"], 
-      [12.9122542, 77.63633109999999, "g"],
-      [12.9120766, 77.6494981, "h"]
     ]
   ]);
+
   const point1 = useRef(0);
   const point2 = useRef(0);
   const [intraRoute, setInRoute] =  useState(true);
@@ -116,7 +105,7 @@ export default function Admin() {
 
     let temproutes = [...routes];
 
-    [temproutes[routetoshow1][point1.current], temproutes[routetoshow2][point2.current]] = [temproutes[routetoshow2][point2.current], temproutes[routetoshow1][point1.current]]
+    [temproutes[routetoshow1][point1.current-1], temproutes[routetoshow2][point2.current-1]] = [temproutes[routetoshow2][point2.current-1], temproutes[routetoshow1][point1.current-1]]
 
     setRoutes(temproutes)
 
@@ -129,8 +118,8 @@ export default function Admin() {
     e.preventDefault();
 
     // swapping the points on the route
-    const p1=point1.current;
-    const p2=point2.current;  
+    const p1=point1.current-1;
+    const p2=point2.current-1;  
     
     let tempRoutes = [...routes];
     
@@ -144,6 +133,8 @@ export default function Admin() {
   useEffect(() => {
     getRoutes()
     getAnalytics()
+    console.log(routes.length)
+    console.log(routes)
   }, [])
   
   useEffect(()=>{
@@ -164,9 +155,11 @@ export default function Admin() {
   return (
     <div>
       {routes.length !==0 ?
-                ( <MapContainerRoutes routes={routes}/>
-                ):null
-              } 
+          ( <MapContainerRoutes routes={routes.length!==0 ? routes:[[22,7]]}/>)
+          :
+          <MapContainerRoutes routes = {[[22,7]]}/>
+      } 
+
       <div className='w-full flex justify-center'>
       <button className='mx-auto border rounded border-blue shadow-lg bg-blue-300 p-2 m-2' onClick={()=>{setInRoute(!intraRoute)}}> {intraRoute? change[0] : change[1]} </button>
       </div>
@@ -202,13 +195,25 @@ export default function Admin() {
 
 
                         {
-                          routes[routetoshow3].map( (point, pointIndex) =>(
-                            <div >
-                              <div>
-                              {pointIndex+1} - {point[2]}
+                          routes.length>0 
+                          ? 
+                            (
+                              routes[routetoshow3].map( 
+                                (point, pointIndex) =>(
+                                  <div >
+                                <div>
+                                {pointIndex+1} - {point[2]}
+                                </div>
                               </div>
-                            </div>)
+                              )
+                              )
+                            )
+                          : 
+                          (
+                            null
+                            
                           )
+
                         }
 
                       </div>
@@ -220,7 +225,7 @@ export default function Admin() {
                           <input type="text" name="point1" onChange={setPoints} className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
 
                           <label>Enter Route Number: (Integer)</label>
-                          <input type="text" name="point1" onChange={setPoints} className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+                          <input type="text" name="point2" onChange={setPoints} className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
                         </div>
                         
                         <div >
@@ -286,6 +291,7 @@ export default function Admin() {
                         </div>
                         
                         <div >
+
                           {/* <button type="button" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" onClick={(e)=>{changeRoute(e,route, routeIndex)}}> Change </button> */}
 
                         </div>
@@ -325,7 +331,7 @@ export default function Admin() {
                         <div className='flex flex-row items-center justify-center mx-auto'>
 
                           <label>Enter Route Number: (Integer)</label>
-                          <input type="text" name="point1" onChange={setPoints} className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
+                          <input type="text" name="point2" onChange={setPoints} className="shadow appearance-none border rounded m-2 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" />
                         </div>
                         
                         <div >
@@ -337,7 +343,6 @@ export default function Admin() {
                       
                     </li>
                   
-                  {/* ))} */}
 
                 </ul>
               </Container>
@@ -356,10 +361,14 @@ export default function Admin() {
                   <Card.Text>
                     <ul className="font-mono">
                       {/* <li>Number of Routes: ${}</li> */}
+                      <li>Number of Drivers: {parseInt(analytics["driver"])} </li>
                       <li>Total Distance Covered: {parseInt(analytics["total_distance"])} km</li>
+                      <li>Avg Distance Travelled by each Rider: {analytics['driver_analytics'] !==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(analytics["total_distance"]/analytics["driver_analytics"].length) : 'NA'} km</li>
                       <li>Total Time Taken: {parseInt(parseInt(analytics["total_time"])/60)} min</li>
-                      <li>Percent Delivery Items: {parseFloat(analytics["percentage_ontime_deliveries"]).toFixed(2)}</li>
-                      <li>Number of Successful Deliveries: {parseInt(analytics["total_ontime_deliveries"])}</li>
+                      <li>Avg Time Taken Travelled by each Rider: {analytics['driver_analytics'] !==undefined && analytics['driver_analytics']?.length!==0 ? parseInt((analytics["total_time"])/(analytics["driver_analytics"].length*60)) : 'NA'} min</li>
+                      <li>Median of Number of Orders given to each rider: {analytics['median']}</li>
+                      {/* <li>Percent Delivery Items: {parseFloat(analytics["percentage_ontime_deliveries"]).toFixed(2)}</li> */}
+                      <li>Number of Successful Deliveries: {analytics['driver_analytics'] !==undefined && analytics['driver_analytics']?.length!==0 ? parseInt(analytics["total_ontime_deliveries"]) - parseInt(analytics["driver_analytics"].length):'NA'}</li>
                     </ul>
                     {/* Dropdown to show a particular driver analytics, a particular index */}
                   </Card.Text>

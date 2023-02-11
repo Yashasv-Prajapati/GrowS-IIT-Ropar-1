@@ -15,8 +15,8 @@ function Data() {
     const [depotAdd, setDepotAdd] = useState(null)
     const [driverStartWindow, setDriverStartWindow] = useState(null)
     const [driverEndWindow, setDriverEndWindow] = useState(null)
-    const [firstSolutionStrategy, setFirstSolutionStrategy] = useState("PATH_CHEAPEST_ARC")
-    const [metaHeuristic, setMetaHeuristic] = useState("GUIDED_LOCAL_SEARCH")
+    const [firstSolutionStrategy, setFirstSolutionStrategy] = useState("AUTOMATIC")
+    const [metaHeuristic, setMetaHeuristic] = useState("AUTOMATIC")
     
     async function sendData(e){
       e.preventDefault()
@@ -175,8 +175,8 @@ function Data() {
         </label>
       {/* Dropdown for first solution strategy */}
         <select onChange={(e)=>setFirstSolutionStrategy(e.target.value)} className="block appearance-none w-full bg-gray-200 border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-state">
-          <option value="PATH_CHEAPEST_ARC">PATH_CHEAPEST_ARC</option>
           <option value="AUTOMATIC">AUTOMATIC</option>
+          <option value="PATH_CHEAPEST_ARC">PATH_CHEAPEST_ARC</option>
           <option value="PATH_MOST_CONSTRAINED_ARC">PATH_MOST_CONSTRAINED_ARC</option>
           <option value="SAVINGS">SAVINGS</option>
           <option value="SWEEP">SWEEP</option>
@@ -187,11 +187,11 @@ function Data() {
 
       <div className="p-2 m-2">
         <label className="block uppercase tracking-wide text-gray-700 text-xs font-bold mb-2" htmlFor="grid-password">
-          Select MetaHeuristic
+          Select Route Improvement Strategy
         </label>
         <select onChange={(e)=>setMetaHeuristic(e.target.value)} className="block appearance-none w-full bg-gray-200 border border-gray-200 text-gray-700 py-3 px-4 pr-8 rounded leading-tight focus:outline-none focus:bg-white focus:border-gray-500" id="grid-state">
-          <option value="GUIDED_LOCAL_SEARCH">GUIDED_LOCAL_SEARCH</option>
           <option value="AUTOMATIC">AUTOMATIC</option>
+          <option value="GUIDED_LOCAL_SEARCH">GUIDED_LOCAL_SEARCH</option>
           <option value="GREEDY_DESCENT">GREEDY_DESCENT</option>
           <option value="TABU_SEARCH">TABU_SEARCH</option>
           <option value="SIMULATED_ANNEALING">SIMULATED_ANNEALING</option>

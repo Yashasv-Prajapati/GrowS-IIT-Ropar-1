@@ -20,7 +20,7 @@ export default function Header() {
             <Nav className="m-auto">
                 <Nav.Link href="/scan-tool">Scan Tool</Nav.Link>
                 <Nav.Link href="/admin">Admin</Nav.Link>
-                <Nav.Link href="/driver">Driver</Nav.Link>
+                <Nav.Link href="/driver/1">Driver</Nav.Link>
                 <Nav.Link href="/data">Data</Nav.Link>
             </Nav>
         {/* </Navbar.Collapse> */}

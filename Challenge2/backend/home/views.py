@@ -224,6 +224,8 @@ def get_lati_long(query):
     with open('data_locations.json', 'w') as outfile:
         json.dump(data_locations, outfile)
     
+    if(data["status"] == "ZERO_RESULTS"):
+        return 0,0
     return data['results'][0]['geometry']['location']['lat'], data['results'][0]['geometry']['location']['lng']
 
 
@@ -451,7 +453,8 @@ def process_data(request):
             lat, lon = get_lati_long(data_locations_dict['address'])
             data_locations_dict['lat'] = lat
             data_locations_dict['lon'] = lon
-            data_locations = [data_locations_dict] + data_locations
+            if lat != 0 or lon != 0:
+                data_locations = [data_locations_dict] + data_locations
         elif data_locations[0]['address']!=request.POST['depotAdd']:
             data_locations[0]['address'] = request.POST['depotAdd']
             lat, lon = get_lati_long(data_locations[0]['address'])
@@ -497,8 +500,9 @@ def process_data(request):
             lat, lon = get_lati_long(data_locations_dict['address'])
             data_locations_dict['lat'] = lat
             data_locations_dict['lon'] = lon
-            data_locations.append(data_locations_dict)
-            data_location_index[data_locations_dict['address']] = len(data_locations)-1
+            if lat != 0 or lon != 0:
+                data_locations.append(data_locations_dict)
+                data_location_index[data_locations_dict['address']] = len(data_locations)-1
     # checking pickupAdd
 
     # saving data_locations to data_locations.json
@@ -606,8 +610,9 @@ def add_pickup_points(request):
             data_locations_dict['AWB'] = int(pickupAdd_sheet['AWB'][row])
             data_locations_dict['lat'] = lat
             data_locations_dict['lon'] = lon
-            data_locations.append(data_locations_dict)
-            data_location_index[data_locations_dict['address']] = len(data_locations)-1
+            if lat != 0 or lon != 0:
+                data_locations.append(data_locations_dict)
+                data_location_index[data_locations_dict['address']] = len(data_locations)-1
     
     with open('data_locations.json', 'w') as outfile:
         json.dump(data_locations, outfile)
@@ -638,6 +643,7 @@ def add_pickup_points(request):
     for i in range(len(driver_paths)):
         for j in range(len(driver_paths[i])):
             driver_path_csv.append(["Route "+str(i+1), driver_paths[i][j][0], driver_paths[i][j][1], driver_paths[i][j][2], driver_paths[i][j][3]])
+        driver_path_csv.append(["Route "+str(i+1), driver_paths[i][0][0], driver_paths[i][0][1], driver_paths[i][0][2], driver_paths[i][0][3]])
         driver_path_csv.append(["", "", "", "", ""])
     
     with open("driver_paths_after_pickups.csv", 'w', newline='') as file:
@@ -686,6 +692,9 @@ def get_solution(data, manager, routing, assignment, time_callback, distance_cal
         analytics_driver_array = []
 
         routes = []
+        
+        
+
 
         while not routing.IsEnd(index):
             dict_analytics = {}
@@ -849,7 +858,7 @@ def cvrptw_with_dropped_locations():
         'Counter')
 
     # Allow to drop nodes.
-    penalty = 10000000000000
+    penalty = 100000
     for node in range(1, len(data['time_matrix'])):
         routing.AddDisjunction([manager.NodeToIndex(node)], penalty)
 
@@ -857,7 +866,7 @@ def cvrptw_with_dropped_locations():
     time = 'Time'
     routing.AddDimension(transit_callback_index,
                          30,  # allow waiting time
-                         86400,  # maximum time per vehicle
+                         21600,  # maximum time per vehicle
                          False,  # Don't force start cumul to zero.
                          time)
     time_dimension = routing.GetDimensionOrDie(time)
@@ -920,6 +929,7 @@ def cvrptw_with_dropped_locations():
     for i in range(len(driver_paths)):
         for j in range(len(driver_paths[i])):
             driver_path_csv.append(["Route "+str(i+1), driver_paths[i][j][0], driver_paths[i][j][1], driver_paths[i][j][2], driver_paths[i][j][3]])
+        driver_path_csv.append(["Route "+str(i+1), driver_paths[i][0][0], driver_paths[i][0][1], driver_paths[i][0][2], driver_paths[i][0][3]])
         driver_path_csv.append(["", "", "", "", ""])
     
     with open('driver_paths.csv', 'w', newline='') as file:
@@ -931,10 +941,14 @@ def cvrptw_with_dropped_locations():
 def get_analytics(request):
     total_distance = 0
     total_time = 0
+    driver = 0
     driver_analytics = []
+    driver_median = []
     total_ontime_deliveries = 0
     if len(data_locations)==0:
         result = {}
+        result['driver'] = 0
+        result['median'] = 0
         result['total_distance'] = 0
         result['total_time'] = 0
         result['driver_analytics'] = []
@@ -947,6 +961,12 @@ def get_analytics(request):
         driver_time = 0
         for path in route:
             driver_time += path[2]
+
+        if len(route) > 1:
+            driver+=1
+            driver_median.append(len(route)-1)
+
+        print("HHH", driver_time, route)
         total_time += driver_time
         driver_dict = {}
         driver_dict['ontime_deliveries'] = count_ontime_deliveries(route)
@@ -954,8 +974,11 @@ def get_analytics(request):
         driver_dict['total_time'] = driver_time
         driver_dict['total_deliveries'] = len(route)
         driver_analytics.append(driver_dict)
+
     result = {}
-    result['total_distance'] = total_time * 40 / (60*60*60)
+    result['median'] = driver_median[int((len(driver_median)-1)/2)]
+    result['driver'] = driver
+    result['total_distance'] = total_time * 40 / (60*60)
     result['total_time'] = total_time
     result['driver_analytics'] = driver_analytics
     result['total_ontime_deliveries'] = total_ontime_deliveries
@@ -1062,7 +1085,7 @@ def add_pickup_point(pickup_address, demand, time_taken):
         free_capacity = max_capacity[driver_index] - \
             driver_routes[driver_index][-1][1]
         current_time = 0
-
+        
         for route_index in range(len(driver_routes[driver_index])-1):
             free_capacity = max_capacity[driver_index] - \
                 driver_routes[driver_index][-1][1]
@@ -1114,11 +1137,21 @@ def add_pickup_point(pickup_address, demand, time_taken):
                 for i in range (route_index+2, len(final_route)):
                     final_route[i][1] -= demand
     
-    print("Add Pickup Point: ", min_cost_driver, min_cost_route, demand)
-    print("Previous:", driver_routes[min_cost_driver][min_cost_route])
-    driver_routes[min_cost_driver] = final_route
-    
-    print("New:", driver_routes[min_cost_driver][min_cost_route])
+    if min_cost_driver == -1:
+        for driver_index in range(len(driver_routes)):
+            if len(driver_routes[driver_index]) <= 2:
+                min_cost_driver = driver_index
+                node_index = driver_routes[-1][0]
+                node_address = data_locations[node_index]['address']
+                node_lat, node_lon = data_locations_dict[node_address]
+                driver_routes[driver_index].append([pickup_index, -demand, distance(node_lat, node_lon, pickup_lat, pickup_lon)])
+                break
+    else:
+        print("Add Pickup Point: ", min_cost_driver, min_cost_route, demand)
+        print("Previous:", driver_routes[min_cost_driver][min_cost_route])
+        driver_routes[min_cost_driver] = final_route
+        
+        print("New:", driver_routes[min_cost_driver][min_cost_route])
 
     
 
