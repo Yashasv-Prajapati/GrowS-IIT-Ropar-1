@@ -4,8 +4,10 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 
 
 ## Our Team
-1. 
-2. 
+1. Parth Jain
+2. Jaglike Makkar
+3. Anant Prakash
+4. Yashasav Prajapati
 
 ## Installation
 
