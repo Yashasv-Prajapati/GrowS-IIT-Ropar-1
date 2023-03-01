@@ -8,6 +8,10 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 2. Jaglike Makkar
 3. Anant Prakash
 4. Yashasav Prajapati
+5. Subham Sahoo
+6. Vasu Bansal
+7. Anubhav Kataria
+8. Sagalpreet Singh
 
 ## Installation
 
