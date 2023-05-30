@@ -1,3 +1,6 @@
+# Updated
+Kavyansh Dhakad
+2022mmb1382
 # Grow Simplee IIT Ropar
 
 This is the repository contains our code for the [Inter IIT Tech Fest](https://interiit-tech.org/). We are working on HIGH PREP problem - [Grow Simplee](https://interiit-tech.org/images/ps/High_GS.pdf). This website is built using [django](https://www.djangoproject.com/).
