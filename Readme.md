@@ -12,7 +12,7 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 6. Vasu Bansal
 7. Anubhav Kataria
 8. Sagalpreet Singh
-
+9. Aditya Garg
 ## Installation
 
 1. Clone the repository
@@ -27,7 +27,7 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 
 
 
-
+:
 ## Advantages of using:
 - The model uses the shadow, which will be the same no matter where the object is placed on the glass plate.
 - Very large objects will also cast their shadows which is not the case if a camera was placed on the top to capture the image as the angle coverage becomes a barrier.
