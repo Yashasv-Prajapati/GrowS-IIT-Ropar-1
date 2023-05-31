@@ -20,6 +20,7 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 14. Jigisha Arora
 15. Sanat Gupta
 16. Shweta Maurya
+17. __tANMAYgOYAL__
 
 ## Installation
 
