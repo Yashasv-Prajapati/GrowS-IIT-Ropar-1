@@ -12,7 +12,13 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 6. Vasu Bansal
 7. Anubhav Kataria
 8. Sagalpreet Singh
-9. Jigisha Arora
+9. Samarth Singhal
+10. Sneha Sahu
+11. murru sai yaswanth 
+12. Kavyansh Dhakad
+13. Varun Kashyap
+14. Jigisha Arora
+
 ## Installation
 
 1. Clone the repository
