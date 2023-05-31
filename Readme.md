@@ -16,6 +16,7 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 10. Sneha Sahu
 11. murru sai yaswanth 
 12. Kavyansh Dhakad
+13. Varun Kashyap
 
 ## Installation
 
