@@ -29,7 +29,6 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 23. Mihir Kasare
 24. Krushna Goel
 25. Nishant Malhotra
-
 ## Installation
 
 1. Clone the repository
