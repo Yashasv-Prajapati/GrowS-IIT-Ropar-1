@@ -27,6 +27,7 @@ This is the repository contains our code for the [Inter IIT Tech Fest](https://i
 21. SHAIKH ASRA SWALEH
 22. Aditya Yadav
 23. Mihir Kasare
+24. Krushna Goel
 
 ## Installation
 
